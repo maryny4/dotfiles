@@ -1,0 +1,97 @@
+@import "palette.css";
+
+* {
+  border: none;
+  font-family: 'Red Hat Display', 'JetBrainsMono Nerd Font Propo';
+  font-weight: 600;
+  min-height: 0;
+}
+
+window#waybar {
+  background-color: transparent;
+  color: @foreground;
+}
+
+/* full-width strip: the panel below docks into it seamlessly */
+#waybar > box {
+  background-color: alpha(@background, 0.75);
+  transition-property: background-color;
+  transition-duration: .5s;
+}
+
+.modules-left   { font-size: 12px; margin-left: 4px; }
+.modules-right  { font-size: 12px; margin-right: 4px; }
+.modules-center { font-size: 12px; }
+
+#workspaces {
+  padding: 0;
+  margin: 0;
+}
+
+#workspaces button {
+  all: initial;
+  font-size: 14px;
+  padding: 0 6px;
+  margin: 0;
+  opacity: 0.6;
+  color: @foreground;
+}
+
+#workspaces button.active {
+  opacity: 1.0;
+  font-size: 18px;
+  transition: all 0.15s ease-in-out;
+}
+
+#tray,
+#tray-expander,
+#cpu,
+#clock,
+#mpris,
+#network,
+#pulseaudio,
+#custom-notifications,
+#custom-updates,
+#custom-wireguard,
+#custom-launcher {
+  min-width: 12px;
+  margin: 0 3px;
+  padding: 0 4px;
+}
+
+#custom-wireguard.disconnected { color: @muted; }
+
+#custom-launcher { font-size: 15px; }
+#tray-expander   { margin-left: 0; }
+#clock           { font-weight: 800; }
+#cpu             { min-width: 48px; }  /* fixed box: 1% vs 78% must not shift the bar */
+
+#custom-separator {
+  opacity: 0.2;
+  padding: 2px 4px 0 4px;
+}
+
+#mpris {
+  animation-name: blink;
+  animation-duration: 3s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes blink {
+  to { color: @muted; }
+}
+
+tooltip {
+  padding: 4px;
+  background: @background;
+  font-size: 12px;
+  border: 1px solid alpha(@foreground, 0.8);
+  border-radius: 8px;
+}
+
+tooltip label {
+  color: @foreground;
+  font-weight: normal;
+}

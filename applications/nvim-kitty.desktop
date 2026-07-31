@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Neovim (kitty)
+Comment=Edit text files in kitty
+Icon=nvim
+Exec=kitty nvim %F
+Terminal=false
+MimeType=text/plain;text/markdown;application/json;application/toml;application/x-yaml;application/x-shellscript;
+Categories=Utility;TextEditor;

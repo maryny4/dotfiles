@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+	echo "usage: copy-files-uri FILE [FILE...]" >&2
+	exit 1
+fi
+
+uris=$(python3 - "$@" <<'EOF'
+import os, sys
+from urllib.parse import quote
+print("\r\n".join("file://" + quote(os.path.abspath(p)) for p in sys.argv[1:]))
+EOF
+)
+
+printf '%s' "$uris" | wl-copy -t text/uri-list
+printf '%s\n' "$uris" >&2

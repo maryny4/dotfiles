@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FONT="JetBrainsMono Nerd Font 11"
+
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita'
+gsettings set org.gnome.desktop.interface icon-theme 'Adwaita'
+gsettings set org.gnome.desktop.interface font-name "$FONT"
+gsettings set org.gnome.desktop.interface monospace-font-name "$FONT"
+gsettings set org.gnome.desktop.interface cursor-size 24
+
+echo "color-scheme : $(gsettings get org.gnome.desktop.interface color-scheme)"
+echo "gtk-theme    : $(gsettings get org.gnome.desktop.interface gtk-theme)"
+echo "font         : $(gsettings get org.gnome.desktop.interface font-name)"

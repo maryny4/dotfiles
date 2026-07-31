@@ -1,0 +1,4 @@
+bind = "10.10.10.2:3389"
+username = "arch"
+password = "CHANGE_ME"
+audio_mode = "off"

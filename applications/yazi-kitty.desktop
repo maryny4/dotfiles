@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Yazi (kitty)
+Comment=Terminal file manager in kitty
+Icon=yazi
+Exec=kitty yazi %f
+Terminal=false
+MimeType=inode/directory;application/zip;application/vnd.rar;application/x-7z-compressed;application/x-tar;application/gzip;application/x-bzip2;application/zstd;
+Categories=System;FileManager;

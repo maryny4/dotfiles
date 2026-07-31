@@ -1,0 +1,19 @@
+#!/bin/bash
+# Waybar module: pending pacman + AUR updates. Empty text hides the module.
+# "update" arg: run full upgrade in a terminal, then refresh the module.
+
+if [ "${1:-}" = "update" ]; then
+    kitty --title "System update" bash -c \
+        'paru; echo; read -rp "Done. Press Enter to close."'
+    exit 0
+fi
+
+p=$(checkupdates 2>/dev/null | wc -l)
+a=$(paru -Qua 2>/dev/null | wc -l)
+t=$((p + a))
+
+if [ "$t" -gt 0 ]; then
+    printf '{"text":"󰏔 %d","tooltip":"pacman: %d\\nAUR: %d\\nClick to update"}\n' "$t" "$p" "$a"
+else
+    printf '{"text":""}\n'
+fi

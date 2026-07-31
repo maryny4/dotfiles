@@ -1,0 +1,7 @@
+# Secrets — never commit. Real values live only in ~/.config, not here.
+hypr-rdp/config.toml
+
+# Local state that must not be tracked
+nvim/lazy-lock.json.bak
+*.orig
+*.swp

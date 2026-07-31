@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+thumbs="${XDG_RUNTIME_DIR:?}/clip-thumbs"
+mkdir -p "$thumbs"
+
+mapfile -t lines < <(cliphist list)
+[ "${#lines[@]}" -gt 0 ] || exit 0
+
+feed() {
+	local line id thumb label
+	for line in "${lines[@]}"; do
+		id="${line%%$'\t'*}"
+		if [[ "$line" == *"binary data"*" png "* ]]; then
+			thumb="$thumbs/$id.png"
+			[ -s "$thumb" ] || cliphist decode "$id" >"$thumb" 2>/dev/null || true
+			if [ -s "$thumb" ]; then
+				label=$(sed -n 's/.*binary data \([0-9.]* [KMGT]\{0,1\}i\{0,1\}B\) [a-z]* \([0-9x]*\).*/\2  \1/p' <<<"$line")
+				printf '%s\0icon\x1f%s\n' "${label:-image}" "$thumb"
+				continue
+			fi
+		fi
+		printf '%s\n' "${line#*$'\t'}"
+	done
+}
+
+idx=$(feed | fuzzel --dmenu --index --prompt="  ") || exit 0
+# no match yields -1, which would index the oldest entry
+[[ "$idx" =~ ^[0-9]+$ ]] || exit 0
+
+printf '%s' "${lines[$idx]}" | cliphist decode | wl-copy
+find "$thumbs" -type f -mmin +60 -delete 2>/dev/null || true

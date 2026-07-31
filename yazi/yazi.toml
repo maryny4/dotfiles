@@ -1,0 +1,10 @@
+# Pin editor to nvim regardless of $EDITOR
+[opener]
+edit = [
+	{ run = 'nvim %s', desc = "nvim", block = true, for = "unix" },
+]
+
+# builtin text previewer skips this MIME; yazi strips the x- prefix from file(1)
+[[plugin.prepend_previewers]]
+mime = "application/pem-file"
+run  = "code"

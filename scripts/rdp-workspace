@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RDP_OUTPUT="${RDP_OUTPUT:-hypr-rdp}"
+
+monitors=$(hyprctl monitors -j)
+active=$(hyprctl activeworkspace -j)
+id=$(jq -r '.id' <<<"$active")
+current=$(jq -r '.monitor' <<<"$active")
+
+if [ "$current" = "$RDP_OUTPUT" ]; then
+	target=$(jq -r --arg r "$RDP_OUTPUT" '[.[] | select(.name != $r)] | .[0].name // empty' <<<"$monitors")
+	if [ -z "$target" ]; then
+		notify-send -u critical -a rdp-workspace "No physical monitor" "Nowhere to return the workspace to"
+		exit 1
+	fi
+	label="local screen ($target)"
+else
+	if ! jq -e --arg r "$RDP_OUTPUT" 'any(.[]; .name == $r)' >/dev/null <<<"$monitors"; then
+		notify-send -u critical -a rdp-workspace "$RDP_OUTPUT missing" "Is hypr-rdp running?"
+		exit 1
+	fi
+	target="$RDP_OUTPUT"
+	label="remote screen"
+fi
+
+if ! out=$(hyprctl dispatch "hl.dsp.workspace.move({ workspace = $id, monitor = \"$target\" })") || [ "$out" != "ok" ]; then
+	notify-send -u critical -a rdp-workspace "Move failed" "$out"
+	exit 1
+fi
+notify-send -u low -a rdp-workspace "Workspace $id moved" "→ $label"

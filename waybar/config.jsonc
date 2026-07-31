@@ -1,0 +1,148 @@
+{
+  "reload_style_on_change": true,
+  "layer": "top",
+  "spacing": 0,
+  "height": 31,
+  "modules-left": [
+    "custom/launcher",
+    "custom/separator",
+    "clock",
+    "mpris"
+  ],
+  "modules-center": [
+    "ext/workspaces"
+  ],
+  "modules-right": [
+    "group/tray-expander",
+    "custom/separator",
+    "custom/notifications",
+    "custom/updates",
+    "network",
+    "custom/wireguard",
+    "pulseaudio",
+    "custom/separator",
+    "cpu"
+  ],
+  "ext/workspaces": {
+    "on-click": "activate",
+    "on-scroll-up": "hyprctl dispatch \"hl.dsp.focus({ workspace = 'e-1' })\"",
+    "on-scroll-down": "hyprctl dispatch \"hl.dsp.focus({ workspace = 'e+1' })\"",
+    "all-outputs": true
+  },
+  "custom/separator": {
+    "format": "|",
+    "tooltip": false
+  },
+  "mpris": {
+    "format": "  {artist} - {title}",
+    "format-paused": "<span color='grey'>{status_icon}  {title}</span>",
+    "max-length": 55,
+    "status-icons": {
+      "paused": "󰝛"
+    }
+  },
+  "cpu": {
+    "interval": 2,
+    "format": " {usage}%",
+    "on-click": "kitty btop"
+  },
+  "clock": {
+    "format": "{:%b %d | %H:%M}",
+    "format-alt": "{:L%d %B W%V %Y}",
+    "tooltip-format": "{calendar}",
+    "calendar": {
+      "format": {
+        "months": "<span color='#ffead3'><b>{}</b></span>",
+        "weekdays": "<span color='#ffcc66'><b>{}</b></span>",
+        "today": "<span color='#ff6699'><b>{}</b></span>"
+      }
+    }
+  },
+  "network": {
+    "format-icons": [
+      "󰤯",
+      "󰤟",
+      "󰤢",
+      "󰤥",
+      "󰤨"
+    ],
+    "format": "{icon}",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "on-click": "kitty sh -c 'nmtui 2>/dev/null || { nmcli device status; read -rsn1 -p \"\n[any key] \"; }'"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "tooltip-format": "Volume: {volume}%",
+    "scroll-step": 5,
+    "format-muted": "",
+    "format-icons": {
+      "default": [
+        "",
+        "",
+        ""
+      ]
+    }
+  },
+  "group/tray-expander": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 600
+    },
+    "modules": [
+      "custom/expand-icon",
+      "tray"
+    ]
+  },
+  "custom/expand-icon": {
+    "format": " ",
+    "tooltip": false
+  },
+  "tray": {
+    "icon-size": 12,
+    "spacing": 12
+  },
+  "custom/launcher": {
+    "format": "󰀘",
+    "on-click": "fuzzel",
+    "on-click-right": "kitty",
+    "tooltip-format": "Launcher (fuzzel)"
+  },
+  "custom/updates": {
+    "return-type": "json",
+    "interval": 1800,
+    "hide-empty-text": true,
+    "exec": "/home/arch/.local/bin/updates-bar",
+    "on-click": "/home/arch/.local/bin/updates-bar update"
+  },
+  "custom/wireguard": {
+    "return-type": "json",
+    "interval": 5,
+    "exec": "/home/arch/.local/bin/wg-bar",
+    "on-click": "/home/arch/.local/bin/wg-bar toggle"
+  },
+  "custom/notifications": {
+    "tooltip": false,
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂚",
+      "dnd-notification": "󰂛",
+      "dnd-none": "󰂛",
+      "inhibited-notification": "󱅫",
+      "inhibited-none": "󰂚",
+      "dnd-inhibited-notification": "󰂛",
+      "dnd-inhibited-none": "󰂛"
+    },
+    "return-type": "json",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "escape": true,
+    "on-click-right": "swaync-client -d"
+  }
+}

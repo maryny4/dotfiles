@@ -1,0 +1,20 @@
+#!/bin/bash
+# Waybar WireGuard module. No args: print status JSON. "toggle": flip the unit.
+# Toggling without sudo relies on polkit rule 10-wg-toggle.rules.
+UNIT=wg-quick@wg0
+
+if [ "${1:-}" = "toggle" ]; then
+    # Ignore clicks mid-transition: starting over an unfinished stop fails the unit.
+    case "$(systemctl is-active "$UNIT")" in
+        activating|deactivating) exit 0 ;;
+        active) systemctl stop "$UNIT" ;;
+        *)      systemctl start "$UNIT" ;;
+    esac
+    exit 0
+fi
+
+if systemctl is-active --quiet "$UNIT"; then
+    printf '{"text":"󰖂","class":"connected","tooltip":"WireGuard up — 10.10.10.2\\nClick to disconnect"}\n'
+else
+    printf '{"text":"󰖂","class":"disconnected","tooltip":"WireGuard down\\nClick to connect"}\n'
+fi

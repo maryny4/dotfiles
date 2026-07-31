@@ -1,0 +1,43 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "control-center-layer": "overlay",
+  "control-center-width": 420,
+  "cssPriority": "application",
+  "control-center-positionX": "right",
+  "control-center-positionY": "top",
+  "hide-on-action": false,
+  "hide-on-clear": true,
+  "notification-inline-replies": true,
+  "notification-window-width": 400,
+  "transition-time": 0,
+  "widget-config": {
+    "notifications": {},
+    "mpris": {
+      "blacklist": [
+        "playerctld"
+      ],
+      "show-album-art": "never"
+    },
+    "title": {
+      "text": "",
+      "button-text": "󰎟 Clear"
+    },
+    "volume": {
+      "label": "",
+      "show-per-app": true,
+      "show-per-app-label": true
+    }
+  },
+  "widgets": [
+    "title",
+    "notifications",
+    "mpris",
+    "volume"
+  ],
+  "notification-action-filter": {
+    "hide-all-action-buttons": {
+      "use-regex": true,
+      "text-matcher": ".*"
+    }
+  }
+}

@@ -1,0 +1,351 @@
+* {
+  font-size: 14px;
+  font-family: 'Red Hat Display';
+  transition: 250ms ease-out;
+  box-shadow: unset;
+}
+
+.control-center .notification-row {
+  background-color: unset;
+}
+
+.control-center .notification-row .notification-background .notification,
+.control-center .notification-row .notification-background .notification .notification-content,
+.floating-notifications .notification-row .notification-background .notification,
+.floating-notifications.background .notification-background .notification .notification-content {
+  margin-bottom: unset;
+}
+
+.control-center .notification-row .notification-background .notification {
+  margin-top: 0.150rem;
+}
+
+.control-center .notification-row .notification-background .notification box,
+.control-center .notification-row .notification-background .notification widget,
+.control-center .notification-row .notification-background .notification .notification-content,
+.floating-notifications .notification-row .notification-background .notification box,
+.floating-notifications .notification-row .notification-background .notification widget,
+.floating-notifications.background .notification-background .notification .notification-content {
+  border: unset;
+  border-radius: 1.159rem;
+}
+
+.floating-notifications.background .notification-background .notification .notification-content,
+.control-center .notification-background .notification .notification-content {
+  background-color: #1D1D22;
+  padding: 0.818rem;
+  margin-right: unset;
+}
+
+.control-center .notification-row .notification-background .notification.low .notification-content label,
+.control-center .notification-row .notification-background .notification.normal .notification-content label,
+.floating-notifications.background .notification-background .notification.low .notification-content label,
+.floating-notifications.background .notification-background .notification.normal .notification-content label {
+  color: #c7c5d0;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content image,
+.control-center .notification-row .notification-background .notification.normal .notification-content image,
+.floating-notifications.background .notification-background .notification.low .notification-content image,
+.floating-notifications.background .notification-background .notification.normal .notification-content image {
+  background-color: unset;
+  color: #e2e0f9;
+}
+
+.control-center .notification-row .notification-background .notification.low .notification-content .body,
+.control-center .notification-row .notification-background .notification.normal .notification-content .body,
+.floating-notifications.background .notification-background .notification.low .notification-content .body,
+.floating-notifications.background .notification-background .notification.normal .notification-content .body {
+  color: #92919a;
+}
+
+.control-center .notification-row .notification-background .notification.critical .notification-content,
+.floating-notifications.background .notification-background .notification.critical .notification-content {
+  background-color: #ffb4a9;
+}
+
+.control-center .notification-row .notification-background .notification.critical .notification-content image,
+.floating-notifications.background .notification-background .notification.critical .notification-content image{
+  background-color: unset;
+  color: #ffb4a9;
+}
+
+.control-center .notification-row .notification-background .notification.critical .notification-content label,
+.floating-notifications.background .notification-background .notification.critical .notification-content label {
+  color: #680003;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .summary,
+.floating-notifications.background .notification-background .notification .notification-content .summary {
+  font-size: 0.9909rem;
+  font-weight: 500;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .time,
+.floating-notifications.background .notification-background .notification .notification-content .time {
+  font-size: 0.8291rem;
+  font-weight: 500;
+  margin-right: 1rem;
+  padding-right: unset;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .body,
+.floating-notifications.background .notification-background .notification .notification-content .body {
+  font-size: 0.8891rem;
+  font-weight: 400;
+  margin-top: 0.310rem;
+  padding-right: unset;
+  margin-right: unset;
+}
+
+.control-center .notification-row .close-button,
+.floating-notifications.background .close-button {
+  background-color: unset;
+  border-radius: 100%;
+  border: none;
+  box-shadow: none;
+  margin-right: 8px;
+  margin-top: 6px;
+  margin-bottom: unset;
+  padding: 4px;
+  min-height: 14px;
+  min-width: 14px;
+  font-size: 11px;
+  -gtk-icon-size: 11px;
+  text-shadow: none;
+}
+
+.control-center .notification-row .close-button:hover,
+.floating-notifications.background .close-button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* docked flush to the bar: only the bottom-left corner stays round */
+.control-center {
+  border-radius: 0 0 0 1.705rem;
+  background-color: rgba(10, 10, 10, 0.75);
+  margin: 0;
+  padding: 4px;
+  border: none;
+  box-shadow: none;
+}
+
+.control-center trough {
+  border-radius: 9999px;
+  min-width: 0.545rem;
+  background-color: transparent;
+}
+
+.control-center slider {
+  border-radius: 9999px;
+  min-width: 0.273rem;
+  min-height: 2.045rem;
+  background-color: rgba(199, 197, 208, 0.31);
+}
+
+.control-center slider:hover {
+  background-color: rgba(199, 197, 208, 0.448);
+}
+
+.control-center slider:active {
+  background-color: #77767e;
+}
+
+.widget-title {
+  padding: 0.341rem;
+}
+
+.widget-title label {
+  font-size: 1.364rem;
+  color: #e4e1e6;
+  margin-left: 0.941rem;
+}
+
+.widget-title button {
+  border: unset;
+  background-color: unset;
+  border-radius: 1.159rem;
+  padding: 0.141rem 0.141rem;
+  margin-right: 0.841rem;
+}
+
+.widget-title button label {
+  font-size: 1.0409rem;
+  color: #e4e1e6;
+  margin-right: 0.841rem;
+}
+
+.widget-title button:hover {
+  background-color: rgba(128, 128, 128, 0.3);
+}
+
+.widget-title button:active {
+  background-color: rgba(128, 128, 128, 0.7);
+}
+
+.widget-volume {
+  background-color: rgba(28, 28, 34, 0.35);
+  padding: 8px;
+  margin: 8px;
+}
+
+.widget-mpris {
+  background-color: rgba(28, 28, 34, 0.35);
+  padding: 8px;
+  margin: 8px;
+  border-radius: 1.159rem;
+}
+
+.widget-mpris-player {
+  padding: 8px;
+  margin: 8px;
+}
+
+.widget-mpris-title {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.widget-mpris-subtitle {
+  font-size: 1.1rem;
+}
+
+/* stock paints the outer wrapper too: card-in-card ring */
+.floating-notifications.background .notification-background,
+.floating-notifications.background .notification-background .notification,
+.control-center .notification-row .notification-background,
+.control-center .notification-row .notification-background .notification {
+  border: none;
+  box-shadow: none;
+}
+.floating-notifications.background .notification-background,
+.control-center .notification-row .notification-background {
+  background: transparent;
+}
+
+.notification-row:focus,
+.notification-row:hover,
+.notification-group:focus {
+  background: transparent;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content {
+  padding-right: 0.818rem;
+}
+
+/* room for the hover close-button over the timestamp */
+.floating-notifications.background .notification-background .notification .notification-content .text-box .time,
+.control-center .notification-row .notification-background .notification .notification-content .text-box .time {
+  margin-right: 1.7rem;
+}
+
+.control-center *:focus,
+.control-center *:focus-visible,
+.floating-notifications *:focus,
+.floating-notifications *:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.control-center .widget-title {
+  margin: 8px 8px 0 8px;
+}
+
+.notification-row .notification-background .notification .notification-action {
+  background-color: rgba(32, 32, 36, 0.98);
+}
+
+/* wrapper takes the card color so action buttons sit inside the card */
+.floating-notifications.background .notification-background .notification,
+.control-center .notification-row .notification-background .notification {
+  background: #1D1D22;
+  padding: 0;
+}
+.notification-row .notification-background .notification .notification-alt-actions {
+  padding: 0 6px 6px 6px;
+}
+.notification-row .notification-background .notification .notification-action {
+  margin: 2px;
+}
+
+/* no hover feedback */
+.notification-row .notification-background .notification .notification-default-action:hover,
+.control-center .control-center-list .notification .notification-default-action:hover,
+.control-center .control-center-list .notification .notification-action:hover,
+.notification-group.collapsed:hover .notification-row:not(:only-child) .notification {
+  background: transparent;
+}
+.control-center .notification-row .notification-background .notification .notification-default-action:hover .notification-content {
+  background-color: #1D1D22;
+}
+
+/* group buttons match the per-notification close X */
+.notification-group .notification-group-buttons button {
+  min-width: 14px;
+  min-height: 14px;
+  padding: 4px;
+  margin: 2px;
+  font-size: 11px;
+  -gtk-icon-size: 11px;
+  background: transparent;
+  border-radius: 100%;
+  color: #ffffff;
+  box-shadow: none;
+  border: none;
+}
+.notification-group .notification-group-buttons button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* volume in our palette */
+.widget-volume scale trough {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  min-height: 6px;
+}
+.widget-volume scale trough highlight {
+  background: #33ccff;
+  border-radius: 9999px;
+}
+.widget-volume scale slider {
+  background: #ffffff;
+  border: none;
+  box-shadow: none;
+  border-radius: 100%;
+  min-width: 12px;
+  min-height: 12px;
+  margin: -4px;
+}
+.widget-volume button {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+}
+.widget-volume button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* popups: denser glass than the control-center cards */
+.floating-notifications.background .notification-background .notification,
+.floating-notifications.background .notification-background .notification .notification-content {
+  background: rgba(24, 24, 28, 0.92);
+}
+.floating-notifications.background .notification-background .notification .notification-default-action:hover .notification-content {
+  background-color: rgba(24, 24, 28, 0.92);
+}
+
+/* cards stretch to the panel width: shrink the stock side insets */
+.control-center .notification-row .notification-background {
+  padding: 4px;
+}
+.notification-group .notification-group-buttons,
+.notification-group .notification-group-headers {
+  margin: 0 4px;
+}
+
+/* one close glyph everywhere */
+.close-button image,
+.notification-group .notification-group-close-button .close-button image {
+  -gtk-icon-source: -gtk-icontheme("window-close-symbolic");
+}
