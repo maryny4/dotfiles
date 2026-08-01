@@ -117,14 +117,14 @@
     "return-type": "json",
     "interval": 1800,
     "hide-empty-text": true,
-    "exec": "/home/arch/.local/bin/updates-bar",
-    "on-click": "/home/arch/.local/bin/updates-bar update"
+    "exec": "$HOME/.local/bin/updates-bar",
+    "on-click": "$HOME/.local/bin/updates-bar update"
   },
   "custom/wireguard": {
     "return-type": "json",
     "interval": 5,
-    "exec": "/home/arch/.local/bin/wg-bar",
-    "on-click": "/home/arch/.local/bin/wg-bar toggle"
+    "exec": "$HOME/.local/bin/wg-bar",
+    "on-click": "$HOME/.local/bin/wg-bar toggle"
   },
   "custom/notifications": {
     "tooltip": false,

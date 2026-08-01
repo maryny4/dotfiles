@@ -20,12 +20,12 @@ desc = "Enter the child directory, or open the file"
 
 [[mgr.prepend_keymap]]
 on   = "y"
-run  = [ "shell -- /home/arch/.local/bin/copy-files-uri %s", "yank" ]
+run  = [ "shell -- $HOME/.local/bin/copy-files-uri %s", "yank" ]
 desc = "Yank selected files (copy) and put them on the system clipboard"
 
 [[mgr.prepend_keymap]]
 on   = [ "c", "t" ]
-run  = "shell -- /home/arch/.local/bin/copy-files-uri %s"
+run  = "shell -- $HOME/.local/bin/copy-files-uri %s"
 desc = "Copy to clipboard"
 
 [[mgr.prepend_keymap]]
