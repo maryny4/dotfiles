@@ -30,7 +30,7 @@
     "all-outputs": true
   },
   "custom/separator": {
-    "format": "",
+    "format": " ",
     "tooltip": false
   },
   "mpris": {
@@ -100,7 +100,7 @@
     ]
   },
   "custom/expand-icon": {
-    "format": " ",
+    "format": "",
     "tooltip": false
   },
   "tray": {
