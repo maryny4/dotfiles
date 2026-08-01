@@ -69,7 +69,7 @@ window#waybar {
   background-color: alpha(@foreground, 0.25);
   font-size: 0;      /* collapse the placeholder space; width is the box below */
   min-width: 2px;
-  margin: 1px 6px;   /* 1px inset top and bottom; 6px sides match the module gap */
+  margin: 5px 6px;   /* ~30% shorter than full height; 6px sides match the module gap */
   padding: 0;
 }
 
