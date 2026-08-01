@@ -14,7 +14,8 @@ if [ "${1:-}" = "toggle" ]; then
 fi
 
 if systemctl is-active --quiet "$UNIT"; then
-    printf '{"text":"󰖂","class":"connected","tooltip":"WireGuard up — 10.10.10.2\\nClick to disconnect"}\n'
+    addr=$(ip -4 -br addr show wg0 2>/dev/null | awk '{print $3}' | cut -d/ -f1)
+    printf '{"text":"󰖂","class":"connected","tooltip":"WireGuard up — %s\\nClick to disconnect"}\n' "${addr:-up}"
 else
     printf '{"text":"󰖂","class":"disconnected","tooltip":"WireGuard down\\nClick to connect"}\n'
 fi
