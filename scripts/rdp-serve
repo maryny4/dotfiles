@@ -3,4 +3,11 @@
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 export HYPRLAND_INSTANCE_SIGNATURE="${HYPRLAND_INSTANCE_SIGNATURE:-$(ls -t "$XDG_RUNTIME_DIR/hypr/" 2>/dev/null | head -1)}"
+
+# AVC444 encodes via VAAPI H.264; NVIDIA's VAAPI is decode-only, which yields a
+# blank frame. Disable it when no VAAPI encode entrypoint is present.
+if command -v vainfo >/dev/null 2>&1 && ! vainfo 2>/dev/null | grep -q VAEntrypointEncSlice; then
+    export HYPR_RDP_DISABLE_AVC444=1
+fi
+
 exec hypr-rdp "$@"
