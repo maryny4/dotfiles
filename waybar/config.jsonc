@@ -20,7 +20,6 @@
     "network",
     "custom/wireguard",
     "pulseaudio",
-    "battery",
     "custom/separator",
     "cpu"
   ],
@@ -33,15 +32,6 @@
   "custom/separator": {
     "format": " ",
     "tooltip": false
-  },
-  "battery": {
-    "interval": 30,
-    "states": { "warning": 30, "critical": 15 },
-    "format": "{icon} {capacity}%",
-    "format-charging": "󰂄 {capacity}%",
-    "format-plugged": "󰚥 {capacity}%",
-    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-    "tooltip-format": "{timeTo} — {capacity}%"
   },
   "mpris": {
     "format": "  {artist} - {title}",

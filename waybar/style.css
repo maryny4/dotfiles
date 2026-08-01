@@ -52,16 +52,12 @@ window#waybar {
 #custom-notifications,
 #custom-updates,
 #custom-wireguard,
-#battery,
 #custom-launcher {
   margin: 0;
   padding: 0 6px;
 }
 
 #custom-wireguard.disconnected { color: @muted; }
-#battery.charging { color: #00ff99; }
-#battery.warning:not(.charging) { color: #ffcc66; }
-#battery.critical:not(.charging) { color: #ff6699; }
 
 #custom-launcher { font-size: 15px; }
 #clock           { font-weight: 800; }
