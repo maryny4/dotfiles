@@ -30,7 +30,7 @@
     "all-outputs": true
   },
   "custom/separator": {
-    "format": "|",
+    "format": "",
     "tooltip": false
   },
   "mpris": {

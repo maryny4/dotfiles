@@ -62,13 +62,16 @@ window#waybar {
 #custom-wireguard.disconnected { color: @muted; }
 
 #custom-launcher { font-size: 15px; }
-#tray-expander   { margin: 0; }
+#tray-expander   { margin: 0; padding: 0 2px; }
 #clock           { font-weight: 800; }
 #cpu             { min-width: 48px; }  /* fixed box: 1% vs 78% must not shift the bar */
 
+/* CSS-drawn vertical line: dead straight, height set by vertical margin */
 #custom-separator {
-  opacity: 0.2;
-  padding: 0 4px;  /* symmetric: pipe centers vertically, level with the icons */
+  background-color: alpha(@foreground, 0.25);
+  min-width: 2px;
+  margin: 9px 5px;
+  padding: 0;
 }
 
 #mpris {
