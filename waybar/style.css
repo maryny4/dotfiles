@@ -54,15 +54,13 @@ window#waybar {
 #custom-updates,
 #custom-wireguard,
 #custom-launcher {
-  min-width: 12px;
-  margin: 0 3px;
-  padding: 0 4px;
+  margin: 0;
+  padding: 0 6px;   /* uniform gap: every element 6px each side -> 12px between any two */
 }
 
 #custom-wireguard.disconnected { color: @muted; }
 
 #custom-launcher { font-size: 15px; }
-#tray-expander   { margin: 0; padding: 0 2px; }
 #clock           { font-weight: 800; }
 #cpu             { min-width: 48px; }  /* fixed box: 1% vs 78% must not shift the bar */
 
@@ -71,7 +69,7 @@ window#waybar {
   background-color: alpha(@foreground, 0.25);
   font-size: 0;      /* collapse the placeholder space; width is the box below */
   min-width: 2px;
-  margin: 0 5px;     /* full bar height, top to bottom */
+  margin: 1px 6px;   /* 1px inset top and bottom; 6px sides match the module gap */
   padding: 0;
 }
 
