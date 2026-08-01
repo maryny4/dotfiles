@@ -71,7 +71,7 @@ window#waybar {
   background-color: alpha(@foreground, 0.25);
   font-size: 0;      /* collapse the placeholder space; width is the box below */
   min-width: 2px;
-  margin: 9px 5px;
+  margin: 0 5px;     /* full bar height, top to bottom */
   padding: 0;
 }
 
