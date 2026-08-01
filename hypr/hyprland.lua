@@ -51,10 +51,14 @@ hl.env("GNUPGHOME", home .. "/.local/share/gnupg")
 hl.env("CUDA_CACHE_PATH", home .. "/.cache/nv")
 hl.env("CLAUDE_CONFIG_DIR", home .. "/.config/claude")
 
--- nvidia
-hl.env("LIBVA_DRIVER_NAME", "nvidia")
-hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
-hl.env("NVD_BACKEND", "direct")
+-- nvidia: only where the driver is loaded (skipped on AMD/Intel)
+local _nv = io.open("/sys/module/nvidia_drm/initstate")
+if _nv then
+    _nv:close()
+    hl.env("LIBVA_DRIVER_NAME", "nvidia")
+    hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+    hl.env("NVD_BACKEND", "direct")
+end
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QT_QPA_PLATFORMTHEME", "hyprqt6engine")
@@ -151,6 +155,13 @@ hl.config({
     input = {
         kb_layout  = "us,ru",
         kb_options = "grp:alt_shift_toggle",
+
+        touchpad = {
+            natural_scroll       = true,
+            tap_to_click         = true,
+            disable_while_typing = true,
+            drag_lock            = true,
+        },
     },
 })
 
