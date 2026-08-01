@@ -12,7 +12,6 @@ window#waybar {
   color: @foreground;
 }
 
-/* full-width strip: the panel below docks into it seamlessly */
 #waybar > box {
   background-color: alpha(@background, 0.75);
   transition-property: background-color;
@@ -55,7 +54,7 @@ window#waybar {
 #custom-wireguard,
 #custom-launcher {
   margin: 0;
-  padding: 0 6px;   /* uniform gap: every element 6px each side -> 12px between any two */
+  padding: 0 6px;
 }
 
 #custom-wireguard.disconnected { color: @muted; }
@@ -64,12 +63,11 @@ window#waybar {
 #clock           { font-weight: 800; }
 #cpu             { min-width: 48px; }  /* fixed box: 1% vs 78% must not shift the bar */
 
-/* CSS-drawn vertical line: dead straight, height set by vertical margin */
 #custom-separator {
   background-color: alpha(@foreground, 0.25);
-  font-size: 0;      /* collapse the placeholder space; width is the box below */
+  font-size: 0;
   min-width: 2px;
-  margin: 8px 6px;   /* short center tick; 6px sides match the module gap */
+  margin: 8px 6px;
   padding: 0;
 }
 
