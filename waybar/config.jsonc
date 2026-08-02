@@ -19,18 +19,10 @@
     "custom/updates",
     "network",
     "custom/wireguard",
-    "custom/language",
     "pulseaudio",
     "custom/separator",
     "cpu"
   ],
-  "custom/language": {
-    "exec": "$HOME/.local/bin/kb-layout",
-    "interval": 1,
-    "signal": 8,
-    "on-click": "$HOME/.local/bin/kb-layout toggle && pkill -RTMIN+8 waybar",
-    "tooltip": false
-  },
   "ext/workspaces": {
     "on-click": "activate",
     "on-scroll-up": "hyprctl dispatch \"hl.dsp.focus({ workspace = 'e-1' })\"",
