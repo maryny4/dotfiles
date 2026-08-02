@@ -13,3 +13,12 @@ run  = "file"
 [[open.prepend_rules]]
 mime = "application/pem-file"
 use  = [ "edit", "reveal" ]
+
+# text/data files that file(1) misdetects as binary (BOM, long lines) -> nvim
+[[open.prepend_rules]]
+url = "*.{txt,text,csv,tsv,log,dat,env,conf,cfg,ini}"
+use = [ "edit", "reveal" ]
+
+[[plugin.prepend_previewers]]
+url = "*.{txt,text,csv,tsv,log,dat,env,conf,cfg,ini}"
+run = "code"
