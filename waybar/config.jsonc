@@ -19,10 +19,18 @@
     "custom/updates",
     "network",
     "custom/wireguard",
+    "hyprland/language",
     "pulseaudio",
     "custom/separator",
     "cpu"
   ],
+  "hyprland/language": {
+    "format": "󰌌 {short}",
+    "format-en": "󰌌 EN",
+    "format-ru": "󰌌 RU",
+    "on-click": "hyprctl switchxkblayout current next",
+    "tooltip-format": "Layout: {long} (click to switch)"
+  },
   "ext/workspaces": {
     "on-click": "activate",
     "on-scroll-up": "hyprctl dispatch \"hl.dsp.focus({ workspace = 'e-1' })\"",
