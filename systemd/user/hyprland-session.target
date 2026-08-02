@@ -6,15 +6,3 @@ Wants=graphical-session-pre.target
 Before=graphical-session-pre.target
 Wants=xdg-desktop-autostart.target
 Before=xdg-desktop-autostart.target
-
-# Complete session membership lives here instead of untracked enable symlinks.
-# Wants= keeps the desktop usable if one optional component fails.
-Wants=waybar.service
-Wants=hyprpaper.service
-Wants=swaync.service
-Wants=hyprpolkitagent.service
-Wants=udiskie.service
-Wants=hyprland-per-window-layout.service
-Wants=wl-clip-persist.service
-Wants=cliphist-text.service
-Wants=cliphist-image.service
