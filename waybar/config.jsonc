@@ -19,17 +19,17 @@
     "custom/updates",
     "network",
     "custom/wireguard",
-    "hyprland/language",
+    "custom/language",
     "pulseaudio",
     "custom/separator",
     "cpu"
   ],
-  "hyprland/language": {
-    "format": "󰌌 {short}",
-    "format-en": "󰌌 EN",
-    "format-ru": "󰌌 RU",
-    "on-click": "hyprctl switchxkblayout current next",
-    "tooltip-format": "Layout: {long} (click to switch)"
+  "custom/language": {
+    "exec": "$HOME/.local/bin/kb-layout",
+    "interval": 1,
+    "signal": 8,
+    "on-click": "$HOME/.local/bin/kb-layout toggle && pkill -RTMIN+8 waybar",
+    "tooltip": false
   },
   "ext/workspaces": {
     "on-click": "activate",

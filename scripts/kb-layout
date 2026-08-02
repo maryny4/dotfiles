@@ -1,0 +1,29 @@
+#!/bin/bash
+# waybar keyboard-layout indicator/toggle for the physical keyboard.
+# The RDP virtual keyboard is excluded: its layout is locked by the RDP client
+# and cannot be switched from the compositor side.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+read -r name lay < <(hyprctl -j devices 2>/dev/null | python3 -c '
+import sys, json
+try:
+    ks = json.load(sys.stdin).get("keyboards", [])
+except Exception:
+    ks = []
+real = [k for k in ks if "virtual" not in k.get("name", "")]
+m = next((k for k in real if k.get("main")), real[0] if real else None)
+if m:
+    print(m["name"], m.get("active_keymap", ""))
+')
+
+if [ "$1" = "toggle" ]; then
+    [ -n "$name" ] && hyprctl switchxkblayout "$name" next >/dev/null 2>&1
+    exit 0
+fi
+
+case "$lay" in
+    Russian*) echo "󰌌 RU" ;;
+    English*) echo "󰌌 EN" ;;
+    "")       echo "󰌌 --" ;;
+    *)        echo "󰌌 ${lay:0:2}" ;;
+esac
