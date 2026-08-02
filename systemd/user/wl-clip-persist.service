@@ -1,0 +1,10 @@
+[Unit]
+Description=Keep the regular Wayland clipboard alive
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/wl-clip-persist --clipboard regular
+Restart=on-failure
+RestartSec=1

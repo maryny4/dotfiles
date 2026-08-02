@@ -1,0 +1,10 @@
+brave-origin-bin
+hypr-rdp-git
+hyprland-per-window-layout
+hyprqt6engine
+paru
+plymouth-theme-monoarch-refined
+redhat-fonts
+sddm-silent-theme
+stressapptest
+yazi-git

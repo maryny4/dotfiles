@@ -17,16 +17,11 @@ local terminal    = "kitty"
 local fileManager = terminal .. " yazi"
 local menu        = "fuzzel"
 
--- autostart: hyprpaper, waybar, swaync and hyprpolkitagent are systemd units
--- pulled in by graphical-session.target, which hyprland-session.target binds
+-- Session processes are systemd user units pulled in by
+-- graphical-session.target, which hyprland-session.target binds.
 hl.on("hyprland.start", function()
     -- import first: hyprpaper and hyprpolkitagent have ConditionEnvironment=WAYLAND_DISPLAY
     hl.exec_cmd("bash -c 'systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP && systemctl --user start hyprland-session.target'")
-    hl.exec_cmd("udiskie --no-tray")
-    hl.exec_cmd("hyprland-per-window-layout")
-    hl.exec_cmd("wl-clip-persist --clipboard regular")
-    hl.exec_cmd("wl-paste --type text  --watch cliphist store")
-    hl.exec_cmd("wl-paste --type image --watch cliphist store")
 end)
 
 hl.on("hyprland.shutdown", function()

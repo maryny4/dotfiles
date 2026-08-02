@@ -1,0 +1,10 @@
+[Unit]
+Description=Remember Hyprland layout per window
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/hyprland-per-window-layout
+Restart=on-failure
+RestartSec=1

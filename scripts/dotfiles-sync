@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode=deploy
+case "${1:-}" in
+    "") ;;
+    --check) mode=check ;;
+    -h|--help)
+        echo "usage: dotfiles-sync [--check]"
+        exit 0
+        ;;
+    *)
+        echo "unknown argument: $1" >&2
+        exit 2
+        ;;
+esac
+
+repo=${DOTFILES_DIR:-"$HOME/dotfiles"}
+if [[ ! -d "$repo/.git" ]]; then
+    echo "dotfiles repository not found: $repo" >&2
+    echo "set DOTFILES_DIR if it lives elsewhere" >&2
+    exit 1
+fi
+command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
+
+files=(
+    ".bashrc:$HOME/.bashrc"
+    ".bash_profile:$HOME/.bash_profile"
+    "mimeapps.list:$HOME/.config/mimeapps.list"
+    "user-dirs.conf:$HOME/.config/user-dirs.conf"
+    "user-dirs.dirs:$HOME/.config/user-dirs.dirs"
+)
+
+dirs=(
+    "applications:$HOME/.local/share/applications"
+    "environment.d:$HOME/.config/environment.d"
+    "fuzzel:$HOME/.config/fuzzel"
+    "git:$HOME/.config/git"
+    "gtk-3.0:$HOME/.config/gtk-3.0"
+    "gtk-4.0:$HOME/.config/gtk-4.0"
+    "hypr:$HOME/.config/hypr"
+    "kitty:$HOME/.config/kitty"
+    "nvim:$HOME/.config/nvim"
+    "pacman:$HOME/.config/pacman"
+    "scripts:$HOME/.local/bin"
+    "swaync:$HOME/.config/swaync"
+    "systemd:$HOME/.config/systemd"
+    "wallpapers:$HOME/Pictures/wallpapers"
+    "waybar:$HOME/.config/waybar"
+    "wireplumber:$HOME/.config/wireplumber"
+    "yazi:$HOME/.config/yazi"
+)
+
+drift=0
+
+sync_file() {
+    local src=$1 dst=$2 changes
+    if [[ $mode == check ]]; then
+        if [[ ! -e $dst ]]; then
+            echo "missing: $dst"
+            drift=1
+        elif ! cmp -s "$src" "$dst"; then
+            echo "changed: $dst"
+            drift=1
+        fi
+    else
+        mkdir -p "${dst%/*}"
+        rsync -a --itemize-changes "$src" "$dst"
+    fi
+}
+
+sync_dir() {
+    local src=$1 dst=$2 changes
+    if [[ $mode == check ]]; then
+        changes=$(rsync -anic --no-times --omit-dir-times \
+            --out-format='%i %n%L' "$src/" "$dst/")
+        if [[ -n $changes ]]; then
+            printf '%s -> %s\n%s\n' "$src" "$dst" "$changes"
+            drift=1
+        fi
+    else
+        mkdir -p "$dst"
+        # Deliberately no --delete: local secrets and generated state survive.
+        rsync -a --itemize-changes "$src/" "$dst/"
+    fi
+}
+
+for mapping in "${files[@]}"; do
+    sync_file "$repo/${mapping%%:*}" "${mapping#*:}"
+done
+
+for mapping in "${dirs[@]}"; do
+    sync_dir "$repo/${mapping%%:*}" "${mapping#*:}"
+done
+
+if [[ $mode == check ]]; then
+    if (( drift )); then
+        echo "dotfiles drift detected"
+        exit 1
+    fi
+    echo "dotfiles are in sync"
+else
+    systemctl --user daemon-reload 2>/dev/null || true
+    echo "dotfiles deployed from $repo"
+fi

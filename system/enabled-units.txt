@@ -1,0 +1,12 @@
+# System units enabled on archlinux. Secrets and generated symlinks are omitted.
+NetworkManager.service
+NetworkManager-wait-online.service
+docker.service
+firewalld.service
+fstrim.timer
+paccache.timer
+sddm.service
+smartd.service
+sshd.service
+systemd-timesyncd.service
+wg-quick@wg0.service

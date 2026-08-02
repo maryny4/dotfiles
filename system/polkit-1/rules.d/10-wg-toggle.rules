@@ -1,0 +1,9 @@
+// Let the local desktop user toggle only this WireGuard systemd unit.
+polkit.addRule(function(action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") === "wg-quick@wg0.service" &&
+        (action.lookup("verb") === "start" || action.lookup("verb") === "stop") &&
+        subject.user === "arch" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

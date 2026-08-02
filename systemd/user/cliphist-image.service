@@ -1,0 +1,10 @@
+[Unit]
+Description=Store image clipboard entries in cliphist
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/wl-paste --type image --watch /usr/bin/cliphist store
+Restart=on-failure
+RestartSec=1

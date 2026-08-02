@@ -7,7 +7,11 @@ HISTCONTROL=ignoreboth
 shopt -s histappend
 stty -ixon  # free Ctrl+S/Ctrl+Q from terminal flow control
 
-case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+for _bindir in "$HOME/.local/bin" "$HOME/.local/share/cargo/bin"; do
+  case ":$PATH:" in *":$_bindir:"*) ;; *) PATH="$_bindir:$PATH" ;; esac
+done
+export PATH
+unset _bindir
 export EDITOR=nvim
 export VISUAL=nvim
 
@@ -26,7 +30,8 @@ export PYTHON_HISTORY="$XDG_STATE_HOME/python/history"
 export NODE_REPL_HISTORY="$XDG_STATE_HOME/node/repl_history"
 export SQLITE_HISTORY="$XDG_STATE_HOME/sqlite/history"
 # tool configs
-export RIPGREP_CONFIG_PATH="$XDG_CONFIG_HOME/ripgrep/config"
+# Drop the legacy override; ripgrep works without an empty config file.
+unset RIPGREP_CONFIG_PATH
 export NPM_CONFIG_USERCONFIG="$XDG_CONFIG_HOME/npm/npmrc"
 export DOCKER_CONFIG="$XDG_CONFIG_HOME/docker"
 export CLAUDE_CONFIG_DIR="$XDG_CONFIG_HOME/claude"
