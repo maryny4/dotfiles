@@ -1,7 +1,7 @@
-From c22fa9c9fc0a39262cb7b108b05c38402b34a69e Mon Sep 17 00:00:00 2001
+From 4d4a19311654c3a90cda3a7f944ed99b00d3e756 Mon Sep 17 00:00:00 2001
 From: maryny4 <147745036+maryny4@users.noreply.github.com>
 Date: Thu, 6 Aug 2026 09:58:04 +0000
-Subject: [PATCH] fix: make compositor keyboard layout policy follow layout
+Subject: [PATCH 1/7] fix: make compositor keyboard layout policy follow layout
  switches
 
 Two mechanisms replace the wl_keyboard.modifiers sync, which is
@@ -25,7 +25,7 @@ so only the virtual keyboard owner can switch its group).
  3 files changed, 204 insertions(+), 81 deletions(-)
 
 diff --git a/src/input/keyboard.rs b/src/input/keyboard.rs
-index 8d5a277..47a6951 100644
+index 8d5a277..f967fe3 100644
 --- a/src/input/keyboard.rs
 +++ b/src/input/keyboard.rs
 @@ -75,13 +75,22 @@ pub(super) struct UnicodeKeyMapping {
@@ -105,7 +105,7 @@ index 8d5a277..47a6951 100644
          self.group = group;
      }
  
-+    /// Resolve an XKB layout display name (e.g. "Russian") to its group index.
++    /// Resolve an XKB layout display name (e.g. "Ukrainian") to its group index.
 +    pub(super) fn layout_index_by_name(&self, name: &str) -> Option<u32> {
 +        self.layout_names
 +            .iter()
@@ -144,21 +144,21 @@ index 8d5a277..47a6951 100644
 +    #[test]
 +    fn layout_index_by_name_resolves_group_indices() {
 +        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
-+            layout: Some("us,ru".into()),
++            layout: Some("us,ua".into()),
 +            ..Default::default()
 +        })
 +        .expect("multi-layout keymap compiles");
 +        let tracker = KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
 +
 +        assert_eq!(tracker.layout_index_by_name("English (US)"), Some(0));
-+        assert_eq!(tracker.layout_index_by_name("Russian"), Some(1));
++        assert_eq!(tracker.layout_index_by_name("Ukrainian"), Some(1));
 +        assert_eq!(tracker.layout_index_by_name("German"), None);
 +    }
 +
 +    #[test]
 +    fn alt_shift_toggles_layout_group() {
 +        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
-+            layout: Some("us,ru".into()),
++            layout: Some("us,ua".into()),
 +            options: Some("grp:alt_shift_toggle".into()),
 +            ..Default::default()
 +        })
@@ -182,7 +182,7 @@ index 8d5a277..47a6951 100644
 +    #[test]
 +    fn external_group_switch_composes_with_alt_shift_toggle() {
 +        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
-+            layout: Some("us,ru".into()),
++            layout: Some("us,ua".into()),
 +            options: Some("grp:alt_shift_toggle".into()),
 +            ..Default::default()
 +        })
@@ -216,7 +216,7 @@ index 31c8d1c..4429e24 100644
          match event {
              KeyboardEvent::Pressed { code, extended } => {
 diff --git a/src/input/wayland.rs b/src/input/wayland.rs
-index 78dd6ee..6e92aea 100644
+index 78dd6ee..d3b91a4 100644
 --- a/src/input/wayland.rs
 +++ b/src/input/wayland.rs
 @@ -2,8 +2,9 @@ use std::fs::File;
@@ -460,8 +460,8 @@ index 78dd6ee..6e92aea 100644
 -            KeyboardLayoutPolicy::Client,
 +    fn activelayout_data_parses_layout_name() {
 +        assert_eq!(
-+            parse_activelayout("hl-virtual-keyboard-hypr-rdp,Russian"),
-+            Some("Russian")
++            parse_activelayout("hl-virtual-keyboard-hypr-rdp,Ukrainian"),
++            Some("Ukrainian")
          );
 -
 -        assert_eq!(keyboard_state.group(), 0);

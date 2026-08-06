@@ -2,8 +2,8 @@
 
 Дата: 2026-08-06. Версия: hypr-rdp 0.1.3 (git afec3bd, HEAD upstream `main`), Hyprland 0.56.1.
 Патч: `0001-fix-make-compositor-keyboard-layout-policy-follow-la.patch` (в этой папке),
-один коммит `c22fa9c` поверх upstream `main`.
-**Отправлено: PR https://github.com/MuNeNICK/hypr-rdp/pull/23 (2026-08-06), автор maryny4 (noreply-email).**
+один коммит `4d4a193` поверх upstream `main`.
+**PR #23 закрыт вместе со старым форком; актуальные PR: #24–#28, см. дополнение в конце файла.**
 
 ## Проблема
 
@@ -171,9 +171,90 @@ verified live (side-by-side stock vs patched, plus real-session switching).
 ```bash
 # пакет собран makepkg из pkg/aur-git с патчем:
 sudo pacman -U hypr-rdp-git-0.1.3.r2.g476ed35-1-x86_64.pkg.tar.zst
-# (установленный g476ed35 идентичен PR-коммиту c22fa9c по коду,
+# (установленный g476ed35 идентичен PR-коммиту 4d4a193 по коду,
 #  отличие только в author-метаданных)
 # в ~/.config/hypr-rdp/config.toml добавить:
 #   keyboard_layout_policy = "compositor"
 # перезапустить hypr-rdp
 ```
+
+---
+
+# Дополнение 2026-08-06 (вечер): ещё три фикса и разбор issue #21
+
+Локальная ветка теперь содержит 5 коммитов поверх upstream `main` (afec3bd):
+
+| Коммит | Что | Статус апстрим |
+|---|---|---|
+| 4d4a193 | fix: compositor layout policy (activelayout + xkb-реплика) | **PR #23 отправлен** |
+| 5a451b2 | feat: session hooks (on_client_connect/disconnect, счётчик сессий) | не отправлен |
+| 9f71acf | fix: сходимость переговоров о размере (letterbox вместо аспект-подгонки) | не отправлен |
+| ba70b0a | feat: опция encoder = auto/software/vaapi | не отправлен |
+| e57ee62 | fix: packed headers для VA-API — **это фикс issue #21** | не отправлен |
+
+## Разбор issue #21 (белый экран с VA-API)
+
+Цепочка доказательств (всё офлайн, без RDP-клиента, тест `vaapi_encode_probe`):
+
+1. Поток hypr-rdp с radeonsi: 30 кадров = 2 КБ, ffmpeg не декодирует ни одного
+   кадра. Все NAL-ы слайсов имеют **нулевой байт заголовка** (`00 88 80 40 02…`
+   вместо `65 88 80 40 02…` у эталонного ffmpeg-потока на том же iGPU).
+2. Причина в Mesa (radeon_vcn_enc.c / picture_h264_enc.c): драйвер требует
+   packed headers (`VAConfigAttribEncPackedHeaders = SEQUENCE|PICTURE|SLICE|…`).
+   `nal_ref_idc`/`nal_unit_type` слайса и поля slice header он **парсит из
+   packed slice header, который обязано подать приложение**. hypr-rdp не
+   подавал ничего — драйвер писал слайсы с пустым заголовком, а SPS/PPS
+   hypr-rdp клеил на CPU, и они не соответствовали слайсам.
+3. Intel iHD собирает заголовки сам — поэтому у мейнтейнера всё работало,
+   а у репортера #21 (RX 9070 XT) и на Raphael iGPU — белый экран.
+4. Фикс: запрос VAConfigAttribEncPackedHeaders при создании кодировщика;
+   на IDR подаются packed SPS+PPS, на каждый кадр — packed slice header
+   (генератор на их же BitWriter). После фикса: поток = IDR + 29 P-слайсов,
+   декодируется в эталонный красный (253,0,0).
+
+Побочный факт: `LIBVA_DRIVER_NAME=nvidia` из hyprland.lua у юзера маскировал
+проблему при ручных запусках (VA-проба падала → софтверный кодировщик), а
+systemd-юнит эту переменную не наследует — так белый экран и всплыл.
+
+## Разбор ресайз-лавины (зеркальный режим)
+
+`normalize_to_source_aspect_bounds` подгоняла размер клиента под точный аспект
+источника + округление до чётного. mstsc перезапрашивает применённый размер,
+сервер снова подгоняет — «лестница» 728x408→724x408→724x406→…→704x396 с
+перезапуском capture+encoder на каждом шаге (белые вспышки, окно ужимается).
+Фикс: принимать запрошенный размер (только чётность и лимиты H.264 —
+идемпотентно), несовпадение пропорций закрывает штатный letterbox
+(fill_black_bars + маппинг указателя уже это умели). Регрессионный тест
+`physical_output_size_negotiation_reaches_fixed_point_immediately`.
+
+## Про хуки (вопрос «идеальное ли решение»)
+
+Прецедент индустрии: Sunshine `prep-cmd` (do/undo при старте/конце сессии) —
+ровно эта модель. Альтернативы рассмотрены и отвергнуты: зеркальный headless
+через Hyprland `mirror` не решает читаемость (копирует фреймбуфер, не
+перерисовывает в другом масштабе); демон-наблюдатель снаружи — лишний юнит и
+гонки. Ограничение дизайна: `on_accept` в ironrdp срабатывает до аутентификации
+— одиночный порт-скан в простое дёрнет хуки (сканы во время сессии отфильтрованы
+счётчиком). Для LAN приемлемо; для идеала нужен колбэк «после аутентификации»
+в ironrdp (может стать отдельным PR в их форк IronRDP).
+
+## Отправка PR 2-5
+
+Каждый коммит независим. Для отдельных PR: cherry-pick нужного коммита на
+свежий `main` в отдельную ветку (fix/resize-convergence, feat/session-hooks,
+feat/encoder-option, fix/vaapi-packed-headers → «Fixes #21»). Патчи можно
+регенерировать из локального клона или ветки форка.
+
+---
+
+# Статус PR (пересозданы 2026-08-06 после удаления форка)
+
+Форк пересоздан, каждая ветка = один коммит на свежем upstream main (afec3bd):
+
+- PR #24 fix/compositor-layout-policy — раскладка (замена закрытого #23)
+- PR #25 fix/presentation-size-convergence — ресайз-лавина
+- PR #26 fix/vaapi-packed-headers — фикс issue #21 (Fixes #21; в тексте кредит и сравнение с конкурирующим #22)
+- PR #27 feat/session-hooks — хуки подключения/отключения
+- PR #28 feat/encoder-option — encoder = auto/software/vaapi
+
+Рабочая копия: ~/src/hypr-rdp (origin=форк, upstream=MuNeNICK; ветка fix/compositor-layout-switch — полный стек 5 коммитов для локальной сборки пакета).

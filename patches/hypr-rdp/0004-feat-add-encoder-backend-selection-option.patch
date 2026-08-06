@@ -1,0 +1,300 @@
+From ba70b0a1cec9f8560b33999e98415a983bb7f014 Mon Sep 17 00:00:00 2001
+From: maryny4 <147745036+maryny4@users.noreply.github.com>
+Date: Thu, 6 Aug 2026 12:13:32 +0000
+Subject: [PATCH 4/7] feat: add encoder backend selection option
+
+Add encoder = "auto" | "software" | "vaapi" (config and CLI).
+Auto keeps the historical try-VA-API-then-fallback behavior, software
+never probes VA-API, vaapi makes encoder creation fail loudly instead
+of silently falling back.
+
+Gives users a supported way to pin the H.264 backend, e.g. to work
+around the radeonsi VA-API white-screen (#21) without environment
+tricks, or to guarantee hardware encoding is actually in use.
+---
+ src/config.rs       | 32 +++++++++++++++-
+ src/egfx/backend.rs | 89 +++++++++++++++++++++++++++++++++++++++++++--
+ src/egfx/mod.rs     |  2 +-
+ src/server/mod.rs   |  2 +
+ 4 files changed, 120 insertions(+), 5 deletions(-)
+
+diff --git a/src/config.rs b/src/config.rs
+index eb10513..240c333 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -5,7 +5,7 @@ use serde::Deserialize;
+ 
+ use crate::audio::AudioMode;
+ use crate::capture::CaptureMode;
+-use crate::egfx::{EgfxCodecPolicy, H264RateControl, DEFAULT_MAX_FRAMES_IN_FLIGHT};
++use crate::egfx::{EgfxCodecPolicy, EncoderPolicy, H264RateControl, DEFAULT_MAX_FRAMES_IN_FLIGHT};
+ use crate::input::KeyboardLayoutPolicy;
+ 
+ #[derive(Parser, Debug)]
+@@ -71,6 +71,10 @@ struct Args {
+     #[arg(long)]
+     audio_mode: Option<String>,
+ 
++    /// H.264 encoder backend: "auto" (default), "software", or "vaapi"
++    #[arg(long)]
++    encoder: Option<String>,
++
+     /// Capture a specific output instead of creating a headless one
+     #[arg(long)]
+     output: Option<String>,
+@@ -105,6 +109,7 @@ struct ConfigFile {
+     egfx_codec: Option<String>,
+     keyboard_layout_policy: Option<String>,
+     audio_mode: Option<String>,
++    encoder: Option<String>,
+     output: Option<String>,
+     on_client_connect: Option<String>,
+     on_client_disconnect: Option<String>,
+@@ -171,6 +176,7 @@ pub struct RuntimeConfig {
+     pub egfx_codec: EgfxCodecPolicy,
+     pub keyboard_layout_policy: KeyboardLayoutPolicy,
+     pub audio_mode: AudioMode,
++    pub encoder: EncoderPolicy,
+     pub resolution_fixed: bool,
+     pub output: Option<String>,
+     pub on_client_connect: Option<String>,
+@@ -227,6 +233,7 @@ impl RuntimeConfig {
+             config.keyboard_layout_policy,
+         )?;
+         let audio_mode = resolve_audio_mode(args.audio_mode, config.audio_mode)?;
++        let encoder = resolve_encoder_policy(args.encoder, config.encoder)?;
+         let output = args.output.or(config.output);
+         let on_client_connect = args.on_client_connect.or(config.on_client_connect);
+         let on_client_disconnect = args.on_client_disconnect.or(config.on_client_disconnect);
+@@ -260,6 +267,7 @@ impl RuntimeConfig {
+             egfx_codec,
+             keyboard_layout_policy,
+             audio_mode,
++            encoder,
+             resolution_fixed,
+             output,
+             on_client_connect,
+@@ -268,6 +276,28 @@ impl RuntimeConfig {
+     }
+ }
+ 
++fn parse_encoder_policy(s: &str) -> anyhow::Result<EncoderPolicy> {
++    match s {
++        "auto" => Ok(EncoderPolicy::Auto),
++        "software" => Ok(EncoderPolicy::Software),
++        "vaapi" => Ok(EncoderPolicy::Vaapi),
++        other => anyhow::bail!(
++            "unknown encoder '{}', expected 'auto', 'software', or 'vaapi'",
++            other
++        ),
++    }
++}
++
++fn resolve_encoder_policy(
++    cli_value: Option<String>,
++    config_value: Option<String>,
++) -> anyhow::Result<EncoderPolicy> {
++    match cli_value.or(config_value) {
++        Some(value) => parse_encoder_policy(&value),
++        None => Ok(EncoderPolicy::Auto),
++    }
++}
++
+ fn parse_rate_control(s: &str) -> anyhow::Result<H264RateControl> {
+     match s {
+         "vbr" => Ok(H264RateControl::Vbr),
+diff --git a/src/egfx/backend.rs b/src/egfx/backend.rs
+index c2442f6..76c14be 100644
+--- a/src/egfx/backend.rs
++++ b/src/egfx/backend.rs
+@@ -1,3 +1,5 @@
++use std::sync::OnceLock;
++
+ use anyhow::Result;
+ 
+ use super::avc444::{Avc444EncodedFrame, Avc444Encoder};
+@@ -16,6 +18,31 @@ pub enum H264RateControl {
+     Cqp,
+ }
+ 
++/// Which H.264 backend encoder creation is allowed to pick.
++#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
++pub enum EncoderPolicy {
++    /// Try VA-API, fall back to software (historical behavior).
++    #[default]
++    Auto,
++    /// Never try VA-API.
++    Software,
++    /// Require VA-API; encoder creation fails if it is unavailable.
++    Vaapi,
++}
++
++/// Process-wide encoder policy, set once at startup from the configuration.
++/// Kept global because encoders are (re)created deep inside the capture
++/// pipeline on every resize.
++static ENCODER_POLICY: OnceLock<EncoderPolicy> = OnceLock::new();
++
++pub fn set_encoder_policy(policy: EncoderPolicy) {
++    let _ = ENCODER_POLICY.set(policy);
++}
++
++fn encoder_policy() -> EncoderPolicy {
++    ENCODER_POLICY.get().copied().unwrap_or_default()
++}
++
+ /// Encoder backend: hardware VAAPI, common H.264 software, or AVC444 software.
+ pub enum FrameEncoder {
+     #[cfg(feature = "vaapi")]
+@@ -29,7 +56,7 @@ pub enum FrameEncoder {
+ }
+ 
+ impl FrameEncoder {
+-    /// Try VAAPI first, fall back to software.
++    /// Create an encoder following the configured [`EncoderPolicy`].
+     pub fn new(
+         width: u32,
+         height: u32,
+@@ -37,20 +64,49 @@ impl FrameEncoder {
+         fps: u32,
+         quality: u8,
+         rate_control: H264RateControl,
++    ) -> Result<Self> {
++        Self::new_with_policy(
++            encoder_policy(),
++            width,
++            height,
++            bitrate,
++            fps,
++            quality,
++            rate_control,
++        )
++    }
++
++    #[allow(clippy::too_many_arguments)]
++    fn new_with_policy(
++        policy: EncoderPolicy,
++        width: u32,
++        height: u32,
++        bitrate: u32,
++        fps: u32,
++        quality: u8,
++        rate_control: H264RateControl,
+     ) -> Result<Self> {
+         #[cfg(feature = "vaapi")]
+-        {
++        if policy != EncoderPolicy::Software {
+             match vaapi::VaapiEncoder::new(width, height, bitrate, fps, quality, rate_control) {
+                 Ok(enc) => {
+                     tracing::info!("Using VA-API hardware encoder");
+                     return Ok(Self::Vaapi(Box::new(enc)));
+                 }
++                Err(e) if policy == EncoderPolicy::Vaapi => {
++                    return Err(e.context("encoder=vaapi requested but VA-API init failed"));
++                }
+                 Err(e) => {
+                     tracing::warn!("VA-API init failed, falling back to software: {:#}", e);
+                 }
+             }
+         }
+ 
++        #[cfg(not(feature = "vaapi"))]
++        if policy == EncoderPolicy::Vaapi {
++            anyhow::bail!("encoder=vaapi requested but built without the vaapi feature");
++        }
++
+         let enc = H264Encoder::new(width, height, bitrate, fps, quality, rate_control)?;
+         tracing::info!("Using FFmpeg/libavcodec software H.264 encoder");
+         Ok(Self::Software(Box::new(enc)))
+@@ -218,14 +274,19 @@ impl FrameEncoder {
+         quality: u8,
+         rate_control: H264RateControl,
+     ) -> Result<Self> {
++        let policy = encoder_policy();
++
+         #[cfg(feature = "vaapi")]
+-        {
++        if policy != EncoderPolicy::Software {
+             match Avc444Encoder::new_with_vaapi(width, height, bitrate, fps, quality, rate_control)
+             {
+                 Ok(enc) => {
+                     tracing::info!("Using FFmpeg/VAAPI hardware AVC444 encoder");
+                     return Ok(Self::SoftwareAvc444(Box::new(enc)));
+                 }
++                Err(e) if policy == EncoderPolicy::Vaapi => {
++                    return Err(e.context("encoder=vaapi requested but VA-API init failed"));
++                }
+                 Err(e) => {
+                     tracing::warn!(
+                         "VA-API AVC444 init failed, falling back to software: {:#}",
+@@ -235,6 +296,11 @@ impl FrameEncoder {
+             }
+         }
+ 
++        #[cfg(not(feature = "vaapi"))]
++        if policy == EncoderPolicy::Vaapi {
++            anyhow::bail!("encoder=vaapi requested but built without the vaapi feature");
++        }
++
+         let enc = Avc444Encoder::new(width, height, bitrate, fps, quality, rate_control)?;
+         tracing::info!("Using FFmpeg/libx264 software AVC444 encoder");
+         Ok(Self::SoftwareAvc444(Box::new(enc)))
+@@ -309,6 +375,23 @@ impl FrameEncoder {
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn software_policy_never_selects_vaapi() {
++        let encoder = FrameEncoder::new_with_policy(
++            EncoderPolicy::Software,
++            64,
++            64,
++            1_000_000,
++            30,
++            23,
++            H264RateControl::Cqp,
++        )
++        .expect("software encoder initializes");
++
++        assert_eq!(encoder.backend_name(), "ffmpeg-h264");
++        assert!(!encoder.is_vaapi());
++    }
++
+     #[test]
+     fn avc444_software_backend_reports_ffmpeg_and_not_vaapi() {
+         let encoder =
+diff --git a/src/egfx/mod.rs b/src/egfx/mod.rs
+index eba264c..b338e2a 100644
+--- a/src/egfx/mod.rs
++++ b/src/egfx/mod.rs
+@@ -19,7 +19,7 @@ pub(crate) mod test_support;
+ #[cfg(test)]
+ pub(crate) use avc420::avc420_full_frame_region;
+ pub(crate) use avc444::{avc444_dimensions_supported, Avc444FrameEncoding};
+-pub use backend::{FrameEncoder, H264RateControl};
++pub use backend::{set_encoder_policy, EncoderPolicy, FrameEncoder, H264RateControl};
+ pub use factory::HyprGfxFactory;
+ pub(crate) use frame::{EgfxFrameCodec, EncodedEgfxFrame, EncodedFrameState};
+ #[cfg(feature = "vaapi")]
+diff --git a/src/server/mod.rs b/src/server/mod.rs
+index 0ccfe0b..5a41dcc 100644
+--- a/src/server/mod.rs
++++ b/src/server/mod.rs
+@@ -40,6 +40,7 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+         egfx_codec,
+         keyboard_layout_policy,
+         audio_mode,
++        encoder,
+         resolution_fixed,
+         output,
+         on_client_connect,
+@@ -47,6 +48,7 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+     } = config;
+ 
+     let addr = parse_bind_addr(&bind)?;
++    crate::egfx::set_encoder_policy(encoder);
+ 
+     let egfx_shared = Arc::new(EgfxShared::with_codec_policy(
+         max_frames_in_flight,
+-- 
+2.55.0
+

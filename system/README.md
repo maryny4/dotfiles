@@ -34,17 +34,27 @@ Paths under this directory mirror `/etc`. Install them with:
 Apply without rebooting: `sudo sysctl --system`,
 `sudo systemctl kill -s USR1 systemd-journald`, `sudo systemctl restart docker`.
 
-## hypr-rdp keyboard layout patch
+## hypr-rdp patches
 
 `hypr-rdp-git` is patched locally; see `patches/hypr-rdp/UPSTREAM.md` for the
-analysis and the upstream PR. Rebuild after installing the AUR package:
+analysis and the upstream PRs, and `mesa-issue.md` for the driver bug behind the
+downscaling artefacts. Rebuild after installing the AUR package:
 
     git clone https://aur.archlinux.org/hypr-rdp-git.git && cd hypr-rdp-git
-    # apply patches/hypr-rdp/0001-*.patch to the fetched source, then
+    # apply patches/hypr-rdp/00*.patch to the fetched source, then
     makepkg -si
 
-Then set `keyboard_layout_policy = "compositor"` in
-`~/.config/hypr-rdp/config.toml`. Drop the patch once the PR is merged.
+Copy `hypr-rdp/config.toml.example` to `~/.config/hypr-rdp/config.toml` and set a
+real password; every key past `audio_mode` depends on these patches. Drop a patch
+once its PR is merged.
+
+The VA-API encoder used to emit blank frames, which `rdp-serve` worked around by
+hiding the driver entirely. `0005-*` (packed sequence/slice headers) fixed it, so
+the workaround is gone; `encoder = "software"` is the escape hatch if it returns.
+
+The server runs as `hypr-rdp.service`, pulled in like every other session member
+by `systemd/user/graphical-session.target.d/session.conf`. `scripts/rdp-serve`
+only exists for running it in the foreground over SSH.
 
 ## Freeze forensics
 

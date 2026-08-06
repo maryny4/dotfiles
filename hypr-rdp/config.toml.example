@@ -2,5 +2,19 @@ bind = "0.0.0.0:3389"
 username = "arch"
 password = "CHANGE_ME"
 audio_mode = "off"
-# Needs the patch in patches/hypr-rdp until the upstream PR lands.
+output = "DP-1"
+
+# All keys below need the patches in patches/hypr-rdp until the upstream PRs land.
 keyboard_layout_policy = "compositor"
+
+# encoder = "auto" picks VA-API when the driver works and falls back to software.
+# Pin it to "software" if the GPU encoder emits blank or corrupt frames.
+encoder = "auto"
+bitrate = 25000000
+rate_control = "cqp"
+quality = 20
+
+# The desktop runs at scale 1.5, which leaves the RDP client a fractional
+# framebuffer; switch to an integer scale while a client is attached.
+on_client_connect = "hyprctl eval \"hl.monitor({ output = 'DP-1', mode = '3840x2160@144', position = '0x0', scale = 2 })\""
+on_client_disconnect = "hyprctl eval \"hl.monitor({ output = 'DP-1', mode = '3840x2160@144', position = '0x0', scale = 1.5 })\""

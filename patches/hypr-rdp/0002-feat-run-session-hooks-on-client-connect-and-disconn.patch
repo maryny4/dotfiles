@@ -1,0 +1,240 @@
+From 5a451b2227e33bc0362760ae63fb41d8d1b32c95 Mon Sep 17 00:00:00 2001
+From: maryny4 <147745036+maryny4@users.noreply.github.com>
+Date: Thu, 6 Aug 2026 11:42:43 +0000
+Subject: [PATCH 2/7] feat: run session hooks on client connect and disconnect
+
+Add on_client_connect / on_client_disconnect options (config and CLI)
+that run a shell command when the first client connects and the last
+one disconnects. Connections are counted so parallel sessions or port
+probes during an active session do not retrigger the hooks.
+
+Useful for adjusting monitor scale for the remote session, waking
+DPMS, or sending notifications.
+---
+ src/config.rs     |  16 ++++++
+ src/server/mod.rs | 124 +++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 139 insertions(+), 1 deletion(-)
+
+diff --git a/src/config.rs b/src/config.rs
+index 7ab3cb8..eb10513 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -75,6 +75,14 @@ struct Args {
+     #[arg(long)]
+     output: Option<String>,
+ 
++    /// Shell command to run when the first client connects
++    #[arg(long)]
++    on_client_connect: Option<String>,
++
++    /// Shell command to run when the last client disconnects
++    #[arg(long)]
++    on_client_disconnect: Option<String>,
++
+     /// Path to config file [default: ~/.config/hypr-rdp/config.toml]
+     #[arg(long)]
+     config: Option<String>,
+@@ -98,6 +106,8 @@ struct ConfigFile {
+     keyboard_layout_policy: Option<String>,
+     audio_mode: Option<String>,
+     output: Option<String>,
++    on_client_connect: Option<String>,
++    on_client_disconnect: Option<String>,
+ }
+ 
+ impl ConfigFile {
+@@ -163,6 +173,8 @@ pub struct RuntimeConfig {
+     pub audio_mode: AudioMode,
+     pub resolution_fixed: bool,
+     pub output: Option<String>,
++    pub on_client_connect: Option<String>,
++    pub on_client_disconnect: Option<String>,
+ }
+ 
+ impl RuntimeConfig {
+@@ -216,6 +228,8 @@ impl RuntimeConfig {
+         )?;
+         let audio_mode = resolve_audio_mode(args.audio_mode, config.audio_mode)?;
+         let output = args.output.or(config.output);
++        let on_client_connect = args.on_client_connect.or(config.on_client_connect);
++        let on_client_disconnect = args.on_client_disconnect.or(config.on_client_disconnect);
+ 
+         let resolution = parse_resolution(&resolution_str)?;
+         let capture_mode = parse_capture_mode(&capture_mode_str)?;
+@@ -248,6 +262,8 @@ impl RuntimeConfig {
+             audio_mode,
+             resolution_fixed,
+             output,
++            on_client_connect,
++            on_client_disconnect,
+         })
+     }
+ }
+diff --git a/src/server/mod.rs b/src/server/mod.rs
+index 0665e67..0ccfe0b 100644
+--- a/src/server/mod.rs
++++ b/src/server/mod.rs
+@@ -1,9 +1,13 @@
+ use std::net::SocketAddr;
+ use std::path::Path;
+ use std::sync::Arc;
++use std::time::Duration;
+ 
+ use anyhow::{Context, Result};
+-use ironrdp_server::{Credentials, RdpServer, SoundServerFactory, TlsIdentityCtx};
++use ironrdp_server::{
++    ConnectionHandler, Credentials, PostConnectionAction, RdpServer, SoundServerFactory,
++    TlsIdentityCtx,
++};
+ 
+ use crate::audio::{AudioMode, HyprSoundFactory};
+ use crate::capture::{HyprDisplay, HyprDisplayHandle};
+@@ -38,6 +42,8 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+         audio_mode,
+         resolution_fixed,
+         output,
++        on_client_connect,
++        on_client_disconnect,
+     } = config;
+ 
+     let addr = parse_bind_addr(&bind)?;
+@@ -93,6 +99,10 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+         .with_gfx_factory(Some(Box::new(gfx_factory)))
+         .with_cliprdr_factory(Some(Box::new(cliprdr_factory)))
+         .with_sound_factory(sound_factory)
++        .with_connection_handler(SessionHooks::for_config(
++            on_client_connect,
++            on_client_disconnect,
++        ))
+         .build();
+ 
+     server.set_credentials(credentials);
+@@ -105,6 +115,96 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+     })
+ }
+ 
++/// Runs configured shell commands when the first client connects and the last
++/// one disconnects. Connections are counted so additional sessions (or port
++/// probes while a session is active) do not retrigger the hooks.
++struct SessionHooks {
++    on_client_connect: Option<String>,
++    on_client_disconnect: Option<String>,
++    active_connections: usize,
++}
++
++impl SessionHooks {
++    fn for_config(
++        on_client_connect: Option<String>,
++        on_client_disconnect: Option<String>,
++    ) -> Option<Box<dyn ConnectionHandler>> {
++        if on_client_connect.is_none() && on_client_disconnect.is_none() {
++            return None;
++        }
++        Some(Box::new(Self {
++            on_client_connect,
++            on_client_disconnect,
++            active_connections: 0,
++        }))
++    }
++
++    /// Returns true when this connection is the first active one.
++    fn register_connect(&mut self) -> bool {
++        self.active_connections += 1;
++        self.active_connections == 1
++    }
++
++    /// Returns true when the last active connection went away.
++    fn register_disconnect(&mut self) -> bool {
++        if self.active_connections == 0 {
++            return false;
++        }
++        self.active_connections -= 1;
++        self.active_connections == 0
++    }
++}
++
++fn run_session_hook(event: &'static str, command: &str) {
++    tracing::info!(event, command, "Running session hook");
++    match std::process::Command::new("/bin/sh")
++        .arg("-c")
++        .arg(command)
++        .spawn()
++    {
++        Ok(mut child) => {
++            // Reap in the background so finished hooks do not linger as zombies.
++            std::thread::spawn(move || {
++                if let Ok(status) = child.wait() {
++                    if !status.success() {
++                        tracing::warn!(event, %status, "Session hook exited with failure");
++                    }
++                }
++            });
++        }
++        Err(error) => {
++            tracing::warn!(event, "Failed to run session hook: {}", error);
++        }
++    }
++}
++
++impl ConnectionHandler for SessionHooks {
++    fn on_accept(&mut self, peer: SocketAddr) -> bool {
++        if self.register_connect() {
++            tracing::debug!(%peer, "First client connection");
++            if let Some(command) = &self.on_client_connect {
++                run_session_hook("connect", command);
++            }
++        }
++        true
++    }
++
++    fn on_disconnected(
++        &mut self,
++        peer: SocketAddr,
++        _duration: Duration,
++        _error: Option<&anyhow::Error>,
++    ) -> PostConnectionAction {
++        if self.register_disconnect() {
++            tracing::debug!(%peer, "Last client connection closed");
++            if let Some(command) = &self.on_client_disconnect {
++                run_session_hook("disconnect", command);
++            }
++        }
++        PostConnectionAction::Continue
++    }
++}
++
+ fn sound_factory_for_audio_mode(audio_mode: AudioMode) -> Option<Box<dyn SoundServerFactory>> {
+     match audio_mode {
+         AudioMode::Mirror | AudioMode::Redirect => {
+@@ -199,6 +299,28 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn session_hooks_absent_without_commands() {
++        assert!(SessionHooks::for_config(None, None).is_none());
++        assert!(SessionHooks::for_config(Some("true".into()), None).is_some());
++        assert!(SessionHooks::for_config(None, Some("true".into())).is_some());
++    }
++
++    #[test]
++    fn session_hooks_fire_only_on_edge_transitions() {
++        let mut hooks = SessionHooks {
++            on_client_connect: None,
++            on_client_disconnect: None,
++            active_connections: 0,
++        };
++
++        assert!(hooks.register_connect()); // 0 -> 1: first client
++        assert!(!hooks.register_connect()); // 1 -> 2: parallel probe
++        assert!(!hooks.register_disconnect()); // 2 -> 1: probe gone
++        assert!(hooks.register_disconnect()); // 1 -> 0: last client
++        assert!(!hooks.register_disconnect()); // spurious disconnect
++    }
++
+     #[test]
+     fn audio_mode_off_disables_sound_factory_wiring() {
+         assert!(sound_factory_for_audio_mode(AudioMode::Mirror).is_some());
+-- 
+2.55.0
+
