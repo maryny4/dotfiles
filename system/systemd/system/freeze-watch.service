@@ -1,0 +1,16 @@
+[Unit]
+Description=Sample machine state to disk for post-freeze forensics
+After=multi-user.target
+
+[Service]
+Type=simple
+User=arch
+Environment=XDG_STATE_HOME=/home/arch/.local/state
+ExecStart=/home/arch/.local/bin/freeze-watch
+Restart=always
+RestartSec=5
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

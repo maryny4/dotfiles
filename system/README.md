@@ -46,6 +46,38 @@ analysis and the upstream PR. Rebuild after installing the AUR package:
 Then set `keyboard_layout_policy = "compositor"` in
 `~/.config/hypr-rdp/config.toml`. Drop the patch once the PR is merged.
 
+## Freeze forensics
+
+This machine hard-freezes with no trace: the journal stops mid-line because a
+frozen kernel never flushes its page cache. Layers that survive that, weakest
+to strongest:
+
+    sudo install -Dm644 system/sysctl.d/99-freeze-debug.conf /etc/sysctl.d/99-freeze-debug.conf
+    sudo install -Dm644 system/modules-load.d/freeze-debug.conf /etc/modules-load.d/freeze-debug.conf
+    sudo install -Dm644 system/systemd/system/freeze-watch.service /etc/systemd/system/freeze-watch.service
+    sudo systemctl daemon-reload && sudo systemctl enable --now freeze-watch.service
+    sudo modprobe efi_pstore amd64_edac && sudo sysctl --system
+
+- `freeze-watch.service`: userspace sampler, fsynced every 5s. Context only
+  (temps, memory, load, top processes) — it cannot explain a hardware hang, but
+  it rules memory exhaustion and runaway processes in or out.
+- `amd64_edac`: nothing was counting DRAM errors before this. Correctable errors
+  accumulating here are the clearest sign of a marginal memory overclock.
+- `rasdaemon`: `sudo systemctl enable --now rasdaemon` records MCE/EDAC events to
+  a database (`ras-mc-ctl --errors`) instead of only the journal.
+- `99-freeze-debug.conf`: converts a soft/hard lockup or 120s hung task into a
+  panic, which `efi_pstore` then writes to EFI NVRAM. Read it after the reboot
+  with `sudo dmesg | grep -i pstore` and `ls /sys/fs/pstore/`. Trade-off: the box
+  reboots itself 20s after a panic instead of sitting frozen.
+- netconsole is the highest-fidelity option — it streams the kernel log to
+  another host over UDP, so nothing depends on the dying disk:
+  `sudo modprobe netconsole netconsole=6666@192.168.0.10/,6666@192.168.0.105/`
+  with `nc -ul 6666` listening on the laptop. Only useful while that host is up.
+
+A truly instantaneous lock (CPU stops executing) leaves nothing even for
+netconsole. If all layers stay silent, the remaining evidence is EDAC counters
+before the event, the BIOS event log, and elimination: run DRAM at JEDEC/stock.
+
 ## WireGuard toggle
 
 Install the narrowly scoped polkit rule:
