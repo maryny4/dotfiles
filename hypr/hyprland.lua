@@ -87,6 +87,45 @@ hl.config({
     },
 })
 
+-- groups: borders follow the window theme; locked groups stay orange
+hl.config({
+    group = {
+        col = {
+            border_active          = { colors = {"rgba(33ccffee)", "rgba(00ff99ee)"}, angle = 45 },
+            border_inactive        = "rgba(595959aa)",
+            border_locked_active   = { colors = {"rgba(ff9955ee)", "rgba(ffcc33ee)"}, angle = 45 },
+            border_locked_inactive = "rgba(6b5a45aa)",
+        },
+
+        groupbar = {
+            font_family        = "JetBrainsMono Nerd Font",
+            font_size          = 10,
+            font_weight_active = "bold",
+            height             = 18,
+            indicator_height   = 2,
+            text_padding       = 8,
+            gaps_in            = 4,
+
+            -- without gradients the colours only tint the 2px indicator and the
+            -- title is drawn straight onto the wallpaper
+            gradients         = true,
+            blur              = true,
+            gradient_rounding = 6,
+            rounding          = 4,
+
+            text_color          = "rgba(e8f4f8ff)",
+            text_color_inactive = "rgba(a0a8acff)",
+
+            col = {
+                active          = "rgba(0e5f7aff)",
+                inactive        = "rgba(1c2226ff)",
+                locked_active   = "rgba(8a4a1aff)",
+                locked_inactive = "rgba(261f1aff)",
+            },
+        },
+    },
+})
+
 -- animations
 hl.curve("easeOutQuint",   { type = "bezier", points = { {0.23, 1},    {0.32, 1}    } })
 hl.curve("linear",         { type = "bezier", points = { {0, 0},       {1, 1}       } })
@@ -171,6 +210,11 @@ hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(home .. "/.local/bin/rdp-work
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd(home .. "/.local/bin/clip-history"))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
+
+hl.bind(mainMod .. " + G",           hl.dsp.group.toggle())
+hl.bind(mainMod .. " + SHIFT + G",   hl.dsp.window.move({ out_of_group = true }))
+hl.bind(mainMod .. " + Tab",         hl.dsp.group.next())
+hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.group.prev())
 
 hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
