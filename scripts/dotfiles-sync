@@ -26,6 +26,7 @@ command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
 files=(
     ".bashrc:$HOME/.bashrc"
     ".bash_profile:$HOME/.bash_profile"
+    "brave-origin-flags.conf:$HOME/.config/brave-origin-flags.conf"
     "mimeapps.list:$HOME/.config/mimeapps.list"
     "user-dirs.conf:$HOME/.config/user-dirs.conf"
     "user-dirs.dirs:$HOME/.config/user-dirs.dirs"
