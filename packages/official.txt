@@ -26,7 +26,11 @@ git-delta
 github-cli
 grim
 grub
+gst-libav
 gst-plugin-pipewire
+gst-plugins-bad
+gst-plugins-base
+gst-plugins-good
 hunspell-en_us
 hyprcursor
 hyprland
@@ -101,6 +105,7 @@ udiskie
 unzip
 usbutils
 waybar
+webkit2gtk-4.1
 wireguard-tools
 wireless-regdb
 wireplumber

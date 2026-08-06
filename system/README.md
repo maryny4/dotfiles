@@ -17,6 +17,35 @@ After bootstrapping `paru`, install AUR packages:
 `redhat-fonts` is listed explicitly because `hyprlock.conf` uses Red Hat
 Display, even though it is currently installed as a dependency.
 
+## Root-owned files kept here
+
+Paths under this directory mirror `/etc`. Install them with:
+
+    sudo install -Dm644 system/systemd/zram-generator.conf /etc/systemd/zram-generator.conf
+    sudo install -Dm644 system/systemd/journald.conf.d/50-size.conf /etc/systemd/journald.conf.d/50-size.conf
+    sudo install -Dm644 system/sysctl.d/99-zram.conf /etc/sysctl.d/99-zram.conf
+    sudo install -Dm644 system/docker/daemon.json /etc/docker/daemon.json
+
+- `journald.conf.d/50-size.conf`: the 50M default kept only ~2 days of history.
+- `sysctl.d/99-zram.conf`: swappiness/page-cluster tuned for zram, not a disk.
+- `docker/daemon.json`: bounded logs plus `live-restore` so package upgrades do
+  not kill running containers.
+
+Apply without rebooting: `sudo sysctl --system`,
+`sudo systemctl kill -s USR1 systemd-journald`, `sudo systemctl restart docker`.
+
+## hypr-rdp keyboard layout patch
+
+`hypr-rdp-git` is patched locally; see `patches/hypr-rdp/UPSTREAM.md` for the
+analysis and the upstream PR. Rebuild after installing the AUR package:
+
+    git clone https://aur.archlinux.org/hypr-rdp-git.git && cd hypr-rdp-git
+    # apply patches/hypr-rdp/0001-*.patch to the fetched source, then
+    makepkg -si
+
+Then set `keyboard_layout_policy = "compositor"` in
+`~/.config/hypr-rdp/config.toml`. Drop the patch once the PR is merged.
+
 ## WireGuard toggle
 
 Install the narrowly scoped polkit rule:
@@ -30,9 +59,9 @@ outside the repository.
 
 ## Current machine intent
 
-- zram: `/etc/systemd/zram-generator.conf` contains `zram-size = ram / 2`.
-- mkinitcpio: NVIDIA modules are early-loaded; hooks include Plymouth and an
-  encrypted root. Regenerate with `sudo mkinitcpio -P` after changes.
+- mkinitcpio: NVIDIA modules are early-loaded via `MODULES`; the `kms` hook is
+  deliberately absent, otherwise it pulls nouveau and amdgpu into the image and
+  more than doubles its size. Regenerate with `sudo mkinitcpio -P` after changes.
 - GRUB: encrypted ext4 root, Plymouth, 4K graphics and the bundled `dark`
   theme. The LUKS UUID is intentionally not copied here.
 - pacman: color, five parallel downloads, sandboxed `DownloadUser = alpm`, and

@@ -8,3 +8,6 @@ hypr-rdp/.tls.lock
 nvim/lazy-lock.json.bak
 *.orig
 *.swp
+
+# Build artifacts — rebuild from patches/ instead
+*.pkg.tar.zst

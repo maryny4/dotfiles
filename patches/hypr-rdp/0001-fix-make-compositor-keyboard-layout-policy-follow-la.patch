@@ -1,0 +1,473 @@
+From c22fa9c9fc0a39262cb7b108b05c38402b34a69e Mon Sep 17 00:00:00 2001
+From: maryny4 <147745036+maryny4@users.noreply.github.com>
+Date: Thu, 6 Aug 2026 09:58:04 +0000
+Subject: [PATCH] fix: make compositor keyboard layout policy follow layout
+ switches
+
+Two mechanisms replace the wl_keyboard.modifiers sync, which is
+unreachable for hypr-rdp: modifiers events are delivered only after
+wl_keyboard.enter, i.e. to the client whose surface holds keyboard
+focus, and hypr-rdp has no surfaces. The group therefore stayed 0
+forever and every modifier change reset the virtual keyboard's layout
+(Hyprland also silently ignores switchxkblayout for virtual keyboards,
+so only the virtual keyboard owner can switch its group).
+
+- Subscribe to Hyprland socket2 activelayout events and mirror external
+  layout switches (hyprctl switchxkblayout, physical keyboards) onto the
+  virtual keyboard.
+- Replicate per-key XKB state processing so group toggle options
+  (e.g. grp:alt_shift_toggle) forwarded by the RDP client switch the
+  tracked group in lockstep with the compositor's own processing.
+---
+ src/input/keyboard.rs | 111 ++++++++++++++++++++++++++-
+ src/input/rdp.rs      |   2 -
+ src/input/wayland.rs  | 172 +++++++++++++++++++++++-------------------
+ 3 files changed, 204 insertions(+), 81 deletions(-)
+
+diff --git a/src/input/keyboard.rs b/src/input/keyboard.rs
+index 8d5a277..47a6951 100644
+--- a/src/input/keyboard.rs
++++ b/src/input/keyboard.rs
+@@ -75,13 +75,22 @@ pub(super) struct UnicodeKeyMapping {
+     pub(super) needs_shift: bool,
+ }
+ 
++/// `xkb::State` holds a raw pointer without thread affinity; libxkbcommon
++/// objects may move between threads as long as access is externally
++/// synchronized, which the `InputState` mutex guarantees.
++struct SendXkbState(xkb::State);
++
++unsafe impl Send for SendXkbState {}
++
+ pub(super) struct KeyboardStateTracker {
+     modifier_masks_by_key: HashMap<u32, u32>,
+     unicode_to_keycode: HashMap<u16, UnicodeKeyMapping>,
++    layout_names: Vec<String>,
+     pressed_keys: HashSet<u32>,
+     depressed_mods: u32,
+     locked_mods: u32,
+     group: u32,
++    xkb_state: SendXkbState,
+     caps_lock_mask: u32,
+     num_lock_mask: u32,
+     scroll_lock_mask: u32,
+@@ -103,10 +112,12 @@ impl KeyboardStateTracker {
+         Ok(Self {
+             modifier_masks_by_key: build_modifier_masks_by_key(&keymap),
+             unicode_to_keycode: build_unicode_to_keycode(&keymap),
++            layout_names: build_layout_names(&keymap),
+             pressed_keys: HashSet::new(),
+             depressed_mods: 0,
+             locked_mods: 0,
+             group: 0,
++            xkb_state: SendXkbState(xkb::State::new(&keymap)),
+             caps_lock_mask: locked_mask_for_key(&keymap, KEY_CAPSLOCK),
+             num_lock_mask: locked_mask_for_key(&keymap, KEY_NUMLOCK),
+             scroll_lock_mask: locked_mask_for_key(&keymap, KEY_SCROLLLOCK),
+@@ -130,6 +141,22 @@ impl KeyboardStateTracker {
+             self.pressed_keys.remove(&evdev_key);
+         }
+ 
++        // Replicate the compositor's per-key XKB processing so group toggle
++        // options (e.g. grp:alt_shift_toggle) keep the tracked group in sync
++        // with the group the compositor switches to on the same key stream.
++        let direction = if pressed {
++            xkb::KeyDirection::Down
++        } else {
++            xkb::KeyDirection::Up
++        };
++        self.xkb_state
++            .0
++            .update_key(xkb::Keycode::new(evdev_key + XKB_KEYCODE_OFFSET), direction);
++        self.group = self
++            .xkb_state
++            .0
++            .serialize_layout(xkb::STATE_LAYOUT_EFFECTIVE);
++
+         self.depressed_mods = self
+             .pressed_keys
+             .iter()
+@@ -144,9 +171,28 @@ impl KeyboardStateTracker {
+     }
+ 
+     pub(super) fn set_group(&mut self, group: u32) {
++        if self.group == group {
++            return;
++        }
++        // Force the locked layout while preserving the current modifier view,
++        // so later update_key calls keep toggling relative to the new group.
++        let depressed = self.xkb_state.0.serialize_mods(xkb::STATE_MODS_DEPRESSED);
++        let latched = self.xkb_state.0.serialize_mods(xkb::STATE_MODS_LATCHED);
++        let locked = self.xkb_state.0.serialize_mods(xkb::STATE_MODS_LOCKED);
++        self.xkb_state
++            .0
++            .update_mask(depressed, latched, locked, 0, 0, group);
+         self.group = group;
+     }
+ 
++    /// Resolve an XKB layout display name (e.g. "Russian") to its group index.
++    pub(super) fn layout_index_by_name(&self, name: &str) -> Option<u32> {
++        self.layout_names
++            .iter()
++            .position(|layout| layout == name)
++            .map(|index| index as u32)
++    }
++
+     pub(super) fn send_modifiers(&self, vk: &ZwpVirtualKeyboardV1) {
+         let state = self.modifier_state();
+         vk.modifiers(state.depressed, state.latched, state.locked, state.group);
+@@ -161,7 +207,6 @@ impl KeyboardStateTracker {
+         }
+     }
+ 
+-    #[cfg(test)]
+     pub(super) fn group(&self) -> u32 {
+         self.group
+     }
+@@ -196,6 +241,12 @@ impl KeyboardStateTracker {
+     }
+ }
+ 
++fn build_layout_names(keymap: &xkb::Keymap) -> Vec<String> {
++    (0..keymap.num_layouts())
++        .map(|layout| keymap.layout_get_name(layout).to_owned())
++        .collect()
++}
++
+ fn compile_xkb_keymap(keymap_data: &[u8]) -> Result<xkb::Keymap> {
+     let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
+     let keymap_text =
+@@ -397,6 +448,64 @@ mod tests {
+         assert_eq!(tracker.modifier_state().group, 1);
+     }
+ 
++    #[test]
++    fn layout_index_by_name_resolves_group_indices() {
++        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
++            layout: Some("us,ru".into()),
++            ..Default::default()
++        })
++        .expect("multi-layout keymap compiles");
++        let tracker = KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
++
++        assert_eq!(tracker.layout_index_by_name("English (US)"), Some(0));
++        assert_eq!(tracker.layout_index_by_name("Russian"), Some(1));
++        assert_eq!(tracker.layout_index_by_name("German"), None);
++    }
++
++    #[test]
++    fn alt_shift_toggles_layout_group() {
++        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
++            layout: Some("us,ru".into()),
++            options: Some("grp:alt_shift_toggle".into()),
++            ..Default::default()
++        })
++        .expect("multi-layout keymap compiles");
++        let mut tracker = KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
++
++        // 56 = KEY_LEFTALT, 42 = KEY_LEFTSHIFT
++        tracker.key(56, true);
++        tracker.key(42, true);
++        tracker.key(42, false);
++        tracker.key(56, false);
++        assert_eq!(tracker.group(), 1);
++
++        tracker.key(56, true);
++        tracker.key(42, true);
++        tracker.key(42, false);
++        tracker.key(56, false);
++        assert_eq!(tracker.group(), 0);
++    }
++
++    #[test]
++    fn external_group_switch_composes_with_alt_shift_toggle() {
++        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
++            layout: Some("us,ru".into()),
++            options: Some("grp:alt_shift_toggle".into()),
++            ..Default::default()
++        })
++        .expect("multi-layout keymap compiles");
++        let mut tracker = KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
++
++        tracker.set_group(1);
++        assert_eq!(tracker.group(), 1);
++
++        tracker.key(56, true);
++        tracker.key(42, true);
++        tracker.key(42, false);
++        tracker.key(56, false);
++        assert_eq!(tracker.group(), 0);
++    }
++
+     #[test]
+     fn normal_key_does_not_report_modifier_state_change() {
+         let keymap = generate_xkb_keymap().expect("default keymap compiles");
+diff --git a/src/input/rdp.rs b/src/input/rdp.rs
+index 31c8d1c..4429e24 100644
+--- a/src/input/rdp.rs
++++ b/src/input/rdp.rs
+@@ -33,8 +33,6 @@ impl RdpServerInputHandler for HyprInputHandler {
+         let Ok(mut state) = self.state.lock() else {
+             return;
+         };
+-        state.refresh_keyboard_group(self.keyboard_layout_policy);
+-
+         let t = state.timestamp();
+         match event {
+             KeyboardEvent::Pressed { code, extended } => {
+diff --git a/src/input/wayland.rs b/src/input/wayland.rs
+index 78dd6ee..6e92aea 100644
+--- a/src/input/wayland.rs
++++ b/src/input/wayland.rs
+@@ -2,8 +2,9 @@ use std::fs::File;
+ use std::io::Read;
+ use std::os::fd::AsFd;
+ use std::os::fd::OwnedFd;
+-use std::sync::{Arc, Mutex};
+-use std::time::Instant;
++use std::sync::{Arc, Mutex, Weak};
++use std::thread;
++use std::time::{Duration, Instant};
+ 
+ use anyhow::{bail, Context, Result};
+ use wayland_client::protocol::{wl_keyboard, wl_output, wl_registry, wl_seat};
+@@ -49,15 +50,6 @@ impl InputState {
+         }
+     }
+ 
+-    pub(super) fn refresh_keyboard_group(&mut self, keyboard_layout_policy: KeyboardLayoutPolicy) {
+-        self.dispatch_pending();
+-        sync_keyboard_group_from_compositor(
+-            &mut self.keyboard_state,
+-            &self.wl_state,
+-            keyboard_layout_policy,
+-        );
+-    }
+-
+     /// Flush outgoing Wayland requests to the compositor.
+     /// Dispatches pending events first (non-blocking) to prevent socket buffer
+     /// backpressure, then flushes outgoing requests.
+@@ -71,6 +63,18 @@ impl InputState {
+         }
+     }
+ 
++    /// Switch the virtual keyboard to another XKB group and notify the
++    /// compositor immediately. No-op when the group is already active.
++    pub(super) fn set_compositor_group(&mut self, group: u32) {
++        if self.keyboard_state.group() == group {
++            return;
++        }
++        self.keyboard_state.set_group(group);
++        self.keyboard_state.send_modifiers(&self.vk);
++        self.flush();
++        tracing::info!(group, "Switched virtual keyboard layout group");
++    }
++
+     pub(super) fn apply_keymap(
+         &mut self,
+         keymap_data: Vec<u8>,
+@@ -164,8 +168,7 @@ impl HyprInputHandler {
+ 
+         let (keymap_data, keymap_source) =
+             load_keymap(&mut event_queue, &mut wl_state, &seat, &qh)?;
+-        let mut keyboard_state = KeyboardStateTracker::new(&keymap_data)?;
+-        sync_keyboard_group_from_compositor(&mut keyboard_state, &wl_state, keyboard_layout_policy);
++        let keyboard_state = KeyboardStateTracker::new(&keymap_data)?;
+         let input_state = InputState {
+             conn,
+             event_queue,
+@@ -201,6 +204,12 @@ impl HyprInputHandler {
+ 
+         let state = Arc::new(Mutex::new(input_state));
+ 
++        // A surfaceless client never receives wl_keyboard.modifiers, so the
++        // compositor's active layout has to come from Hyprland IPC instead.
++        if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor {
++            spawn_activelayout_listener(Arc::downgrade(&state));
++        }
++
+         Ok(Self {
+             state,
+             keyboard_layout_policy,
+@@ -208,6 +217,66 @@ impl HyprInputHandler {
+     }
+ }
+ 
++/// Follow compositor layout switches (`hyprctl switchxkblayout`, layout binds)
++/// via Hyprland socket2 `activelayout` events and mirror the active group onto
++/// the virtual keyboard.
++fn spawn_activelayout_listener(state: Weak<Mutex<InputState>>) {
++    thread::spawn(move || {
++        tracing::info!("Listening for Hyprland activelayout events");
++        loop {
++            match connect_event_stream() {
++                Ok(mut events) => loop {
++                    match events.wait_for("activelayout", Duration::from_secs(3600)) {
++                        Ok(data) => {
++                            let Some(input_state) = state.upgrade() else {
++                                return;
++                            };
++                            apply_activelayout_event(&input_state, &data);
++                        }
++                        Err(err) => {
++                            tracing::debug!("Hyprland activelayout stream interrupted: {:#}", err);
++                            break;
++                        }
++                    }
++                },
++                Err(err) => {
++                    tracing::debug!("Hyprland event socket unavailable: {:#}", err);
++                }
++            }
++            if state.upgrade().is_none() {
++                return;
++            }
++            thread::sleep(Duration::from_secs(1));
++        }
++    });
++}
++
++fn connect_event_stream() -> Result<hyprland::EventStream> {
++    let events = hyprland::EventStream::connect()?;
++    events.ensure_registered()?;
++    Ok(events)
++}
++
++fn apply_activelayout_event(state: &Mutex<InputState>, data: &str) {
++    let Some(layout_name) = parse_activelayout(data) else {
++        return;
++    };
++    let Ok(mut state) = state.lock() else {
++        return;
++    };
++    let Some(group) = state.keyboard_state.layout_index_by_name(layout_name) else {
++        tracing::debug!(layout_name, "activelayout name not present in keymap");
++        return;
++    };
++    state.set_compositor_group(group);
++}
++
++/// Extract the layout name from `activelayout` event data
++/// (`KEYBOARDNAME,LAYOUTNAME`).
++fn parse_activelayout(data: &str) -> Option<&str> {
++    data.split_once(',').map(|(_, layout)| layout)
++}
++
+ fn load_keymap(
+     event_queue: &mut EventQueue<WlState>,
+     wl_state: &mut WlState,
+@@ -298,16 +367,6 @@ fn take_loaded_keymap(wl_state: &mut WlState) -> Result<Option<(Vec<u8>, &'stati
+     Ok(Some((keymap_data, "compositor")))
+ }
+ 
+-fn sync_keyboard_group_from_compositor(
+-    keyboard_state: &mut KeyboardStateTracker,
+-    wl_state: &WlState,
+-    keyboard_layout_policy: KeyboardLayoutPolicy,
+-) {
+-    if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor {
+-        keyboard_state.set_group(wl_state.keyboard_group);
+-    }
+-}
+-
+ fn read_keymap(fd: OwnedFd, size: u32) -> Result<Vec<u8>> {
+     let size = usize::try_from(size).context("keyboard keymap too large")?;
+     if size == 0 {
+@@ -327,7 +386,6 @@ struct WlState {
+     seat_has_keyboard: bool,
+     keyboard: Option<wl_keyboard::WlKeyboard>,
+     keymap: Option<Vec<u8>>,
+-    keyboard_group: u32,
+     vk_manager: Option<ZwpVirtualKeyboardManagerV1>,
+     vp_manager: Option<ZwlrVirtualPointerManagerV1>,
+     outputs: Vec<(wl_output::WlOutput, Option<String>)>,
+@@ -395,23 +453,20 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WlState {
+         _: &Connection,
+         _: &QueueHandle<Self>,
+     ) {
+-        match event {
+-            wl_keyboard::Event::Keymap {
+-                format: WEnum::Value(wl_keyboard::KeymapFormat::XkbV1),
+-                fd,
+-                size,
+-            } => match read_keymap(fd, size) {
++        if let wl_keyboard::Event::Keymap {
++            format: WEnum::Value(wl_keyboard::KeymapFormat::XkbV1),
++            fd,
++            size,
++        } = event
++        {
++            match read_keymap(fd, size) {
+                 Ok(keymap) => {
+                     state.keymap = Some(keymap);
+                 }
+                 Err(err) => {
+                     tracing::warn!("Failed to read compositor keymap: {:#}", err);
+                 }
+-            },
+-            wl_keyboard::Event::Modifiers { group, .. } => {
+-                state.keyboard_group = group;
+             }
+-            _ => {}
+         }
+     }
+ }
+@@ -520,50 +575,11 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn compositor_policy_syncs_active_keyboard_group() {
+-        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
+-            layout: Some("cz,us".into()),
+-            variant: Some("qwerty,".into()),
+-            ..Default::default()
+-        })
+-        .expect("multi-layout keymap compiles");
+-        let mut keyboard_state =
+-            KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
+-        let wl_state = WlState {
+-            keyboard_group: 1,
+-            ..Default::default()
+-        };
+-
+-        sync_keyboard_group_from_compositor(
+-            &mut keyboard_state,
+-            &wl_state,
+-            KeyboardLayoutPolicy::Compositor,
+-        );
+-
+-        assert_eq!(keyboard_state.group(), 1);
+-    }
+-
+-    #[test]
+-    fn client_policy_keeps_client_keyboard_group() {
+-        let keymap = generate_xkb_keymap_from_names(&XkbKeymapNames {
+-            layout: Some("cz,us".into()),
+-            variant: Some("qwerty,".into()),
+-            ..Default::default()
+-        })
+-        .expect("multi-layout keymap compiles");
+-        let mut keyboard_state =
+-            KeyboardStateTracker::new(&keymap).expect("generated keymap loads");
+-        let wl_state = WlState {
+-            keyboard_group: 1,
+-            ..Default::default()
+-        };
+-
+-        sync_keyboard_group_from_compositor(
+-            &mut keyboard_state,
+-            &wl_state,
+-            KeyboardLayoutPolicy::Client,
++    fn activelayout_data_parses_layout_name() {
++        assert_eq!(
++            parse_activelayout("hl-virtual-keyboard-hypr-rdp,Russian"),
++            Some("Russian")
+         );
+-
+-        assert_eq!(keyboard_state.group(), 0);
++        assert_eq!(parse_activelayout("no-comma"), None);
+     }
+ }
+-- 
+2.55.0
+
