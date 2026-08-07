@@ -168,8 +168,6 @@ hl.layer_rule({
     animation = "slide right",
 })
 
-hl.workspace_rule({ workspace = "99", monitor = "hypr-rdp", default = true })
-
 hl.config({
     dwindle = {
         preserve_split = true,
@@ -206,7 +204,6 @@ hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("pidof hyprlock >/dev/null || hyprlock"))
-hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(home .. "/.local/bin/rdp-workspace"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd(home .. "/.local/bin/clip-history"))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
